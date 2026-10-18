@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import type { Transaction, TransactionType, TransactionCategory } from '../types';
+import type { Transaction, TransactionType, TransactionCategory, SupportedCurrency } from '../types';
+import { CURRENCY_SYMBOLS } from '../utils/formatters';
 
 interface AddTransactionModalProps {
   isOpen: boolean;
   onClose: () => void;
   onAddTransaction: (newTx: Omit<Transaction, 'id'>) => void;
+  currency?: SupportedCurrency;
 }
 
 const CATEGORIES: TransactionCategory[] = [
@@ -26,6 +28,7 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
   isOpen,
   onClose,
   onAddTransaction,
+  currency = 'USD',
 }) => {
   const [title, setTitle] = useState('');
   const [amount, setAmount] = useState('');
@@ -155,10 +158,10 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
           <div className="form-row">
             <div className="form-group flex-1">
               <label htmlFor="tx-amount" className="form-label">
-                Amount ($) *
+                Amount ({CURRENCY_SYMBOLS[currency]}) *
               </label>
               <div className="input-prefix-wrapper">
-                <span className="input-prefix">$</span>
+                <span className="input-prefix">{CURRENCY_SYMBOLS[currency]}</span>
                 <input
                   id="tx-amount"
                   type="number"

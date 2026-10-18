@@ -1,18 +1,13 @@
 import React from 'react';
-import type { FinancialSummary } from '../types';
+import type { FinancialSummary, SupportedCurrency } from '../types';
+import { formatCurrency } from '../utils/formatters';
 
 interface SummaryCardsProps {
   summary: FinancialSummary;
+  currency?: SupportedCurrency;
 }
 
-export const SummaryCards: React.FC<SummaryCardsProps> = ({ summary }) => {
-  const formatCurrency = (val: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-      minimumFractionDigits: 2,
-    }).format(val);
-  };
+export const SummaryCards: React.FC<SummaryCardsProps> = ({ summary, currency = 'USD' }) => {
 
   return (
     <div className="summary-grid">
@@ -23,7 +18,7 @@ export const SummaryCards: React.FC<SummaryCardsProps> = ({ summary }) => {
           <div className="card-label-light">TOTAL NET BALANCE</div>
           <span className="balance-chip">Active Vault</span>
         </div>
-        <div className="balance-amount">{formatCurrency(summary.totalBalance)}</div>
+        <div className="balance-amount">{formatCurrency(summary.totalBalance, currency)}</div>
         <div className="card-bottom">
           <div className="trend-badge positive">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -47,7 +42,7 @@ export const SummaryCards: React.FC<SummaryCardsProps> = ({ summary }) => {
             </svg>
           </div>
         </div>
-        <div className="stat-amount income-text">{formatCurrency(summary.totalIncome)}</div>
+        <div className="stat-amount income-text">{formatCurrency(summary.totalIncome, currency)}</div>
         <div className="card-bottom">
           <span className="stat-pill positive">+2 inbound sources</span>
           <span className="card-subtext">Oct 1 - Oct 31</span>
@@ -65,7 +60,7 @@ export const SummaryCards: React.FC<SummaryCardsProps> = ({ summary }) => {
             </svg>
           </div>
         </div>
-        <div className="stat-amount expense-text">{formatCurrency(summary.totalExpenses)}</div>
+        <div className="stat-amount expense-text">{formatCurrency(summary.totalExpenses, currency)}</div>
         <div className="card-bottom">
           <span className="stat-pill neutral">5 recorded expenses</span>
           <span className="card-subtext">Under monthly budget</span>

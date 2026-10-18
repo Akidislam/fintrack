@@ -1,4 +1,4 @@
-import type { Transaction } from '../types';
+import type { Transaction, CategoryBudget } from '../types';
 
 export const INITIAL_TRANSACTIONS: Transaction[] = [
   {
@@ -65,3 +65,27 @@ export const INITIAL_TRANSACTIONS: Transaction[] = [
     note: 'Team lunch',
   },
 ];
+
+export const INITIAL_BUDGETS: CategoryBudget[] = [
+  {
+    id: 'b-1',
+    category: 'Housing',
+    monthlyLimit: 1500.0,
+  },
+  {
+    id: 'b-2',
+    category: 'Groceries',
+    monthlyLimit: 400.0,
+  },
+  {
+    id: 'b-3',
+    category: 'Utilities',
+    monthlyLimit: 120.0,
+  },
+  {
+    id: 'b-4',
+    category: 'Entertainment',
+    monthlyLimit: 80.0,
+  },
+];
+

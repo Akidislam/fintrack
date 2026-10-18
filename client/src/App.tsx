@@ -1,16 +1,31 @@
 import { useState, useEffect } from 'react';
 import './App.css';
-import type { Transaction, FinancialSummary } from './types';
-import { INITIAL_TRANSACTIONS } from './data/mockData';
+import type { Transaction, FinancialSummary, CategoryBudget, TransactionCategory, SupportedCurrency } from './types';
+import { INITIAL_TRANSACTIONS, INITIAL_BUDGETS } from './data/mockData';
 import { Sidebar } from './components/Sidebar';
 import { SummaryCards } from './components/SummaryCards';
 import { TransactionList } from './components/TransactionList';
 import { AddTransactionModal } from './components/AddTransactionModal';
+import { AccountsPage } from './components/AccountsPage';
+import { TransactionsPage } from './components/TransactionsPage';
+import { BudgetsPage } from './components/BudgetsPage';
+import { AnalyticsPage } from './components/AnalyticsPage';
+import { SettingsPage } from './components/SettingsPage';
 
 export function App() {
   const [transactions, setTransactions] = useState<Transaction[]>(() => {
     const saved = localStorage.getItem('fintrack_transactions');
     return saved ? JSON.parse(saved) : INITIAL_TRANSACTIONS;
+  });
+
+  const [budgets, setBudgets] = useState<CategoryBudget[]>(() => {
+    const saved = localStorage.getItem('fintrack_budgets');
+    return saved ? JSON.parse(saved) : INITIAL_BUDGETS;
+  });
+
+  const [currency, setCurrency] = useState<SupportedCurrency>(() => {
+    const saved = localStorage.getItem('fintrack_currency');
+    return (saved as SupportedCurrency) || 'USD';
   });
 
   const [activeNav, setActiveNav] = useState('dashboard');
@@ -22,6 +37,16 @@ export function App() {
   useEffect(() => {
     localStorage.setItem('fintrack_transactions', JSON.stringify(transactions));
   }, [transactions]);
+
+  // Sync budgets to localStorage
+  useEffect(() => {
+    localStorage.setItem('fintrack_budgets', JSON.stringify(budgets));
+  }, [budgets]);
+
+  // Sync currency preference to localStorage
+  useEffect(() => {
+    localStorage.setItem('fintrack_currency', currency);
+  }, [currency]);
 
   // Check Express backend health check endpoint
   useEffect(() => {
@@ -84,10 +109,41 @@ export function App() {
     setTransactions((prev) => prev.filter((tx) => tx.id !== id));
   };
 
+  // Add / update budget handler
+  const handleSaveBudget = (
+    category: TransactionCategory,
+    monthlyLimit: number,
+    editId?: string
+  ) => {
+    setBudgets((prev) => {
+      if (editId) {
+        return prev.map((b) =>
+          b.id === editId ? { ...b, category, monthlyLimit } : b
+        );
+      }
+      const existing = prev.find((b) => b.category === category);
+      if (existing) {
+        return prev.map((b) =>
+          b.id === existing.id ? { ...b, monthlyLimit } : b
+        );
+      }
+      return [...prev, { id: `b-${Date.now()}`, category, monthlyLimit }];
+    });
+  };
+
+  // Remove budget handler
+  const handleRemoveBudget = (id: string) => {
+    setBudgets((prev) => prev.filter((b) => b.id !== id));
+  };
+
   // Quick reset to initial mock data
   const handleResetData = () => {
     setTransactions(INITIAL_TRANSACTIONS);
+    setBudgets(INITIAL_BUDGETS);
+    setCurrency('USD');
     localStorage.removeItem('fintrack_transactions');
+    localStorage.removeItem('fintrack_budgets');
+    localStorage.removeItem('fintrack_currency');
   };
 
   return (
@@ -117,8 +173,22 @@ export function App() {
               </svg>
             </button>
             <div className="greeting-block">
-              <h1 className="greeting-title">FinTrack Dashboard</h1>
-              <p className="greeting-subtitle">Track your wealth, monthly cash flow, and spending habits.</p>
+              <h1 className="greeting-title">
+                {activeNav === 'dashboard' && 'FinTrack Dashboard'}
+                {activeNav === 'accounts' && 'Accounts'}
+                {activeNav === 'transactions' && 'Transactions'}
+                {activeNav === 'budgets' && 'Budgets'}
+                {activeNav === 'analytics' && 'Analytics'}
+                {activeNav === 'settings' && 'Settings'}
+              </h1>
+              <p className="greeting-subtitle">
+                {activeNav === 'dashboard' && 'Track your wealth, monthly cash flow, and spending habits.'}
+                {activeNav === 'accounts' && 'Manage your financial accounts and institution connections.'}
+                {activeNav === 'transactions' && 'View, search, and manage all recorded transactions.'}
+                {activeNav === 'budgets' && 'Set spending limits and monitor budget categories.'}
+                {activeNav === 'analytics' && 'Gain insights into your spending habits and financial trends.'}
+                {activeNav === 'settings' && 'Configure preferences and system options.'}
+              </p>
             </div>
           </div>
 
@@ -151,15 +221,50 @@ export function App() {
 
         {/* Dashboard Content Container */}
         <div className="dashboard-body">
-          {/* Financial Summary Cards */}
-          <SummaryCards summary={summary} />
+          {activeNav === 'dashboard' && (
+            <>
+              {/* Financial Summary Cards */}
+              <SummaryCards summary={summary} currency={currency} />
 
-          {/* Recent Transactions List with Filters & Search */}
-          <TransactionList
-            transactions={transactions}
-            onDeleteTransaction={handleDeleteTransaction}
-            onOpenAddModal={() => setIsAddModalOpen(true)}
-          />
+              {/* Recent Transactions List with Filters & Search */}
+              <TransactionList
+                transactions={transactions}
+                onDeleteTransaction={handleDeleteTransaction}
+                onOpenAddModal={() => setIsAddModalOpen(true)}
+                currency={currency}
+              />
+            </>
+          )}
+
+          {activeNav === 'accounts' && <AccountsPage />}
+
+          {activeNav === 'transactions' && (
+            <TransactionsPage transactions={transactions} currency={currency} />
+          )}
+
+          {activeNav === 'budgets' && (
+            <BudgetsPage
+              budgets={budgets}
+              transactions={transactions}
+              onSaveBudget={handleSaveBudget}
+              onRemoveBudget={handleRemoveBudget}
+              currency={currency}
+            />
+          )}
+
+          {activeNav === 'analytics' && (
+            <AnalyticsPage transactions={transactions} currency={currency} />
+          )}
+
+          {activeNav === 'settings' && (
+            <SettingsPage
+              currency={currency}
+              onCurrencyChange={setCurrency}
+              transactionsCount={transactions.length}
+              budgetsCount={budgets.length}
+              onResetData={handleResetData}
+            />
+          )}
 
           {/* Footer with Reset Sample Data option */}
           <footer className="dashboard-footer">
@@ -178,6 +283,7 @@ export function App() {
         isOpen={isAddModalOpen}
         onClose={() => setIsAddModalOpen(false)}
         onAddTransaction={handleAddTransaction}
+        currency={currency}
       />
     </div>
   );

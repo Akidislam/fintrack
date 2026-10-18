@@ -1,27 +1,22 @@
 import React, { useState } from 'react';
-import type { Transaction, TransactionType } from '../types';
+import type { Transaction, TransactionType, SupportedCurrency } from '../types';
+import { formatCurrency } from '../utils/formatters';
 
 interface TransactionListProps {
   transactions: Transaction[];
   onDeleteTransaction: (id: string) => void;
   onOpenAddModal: () => void;
+  currency?: SupportedCurrency;
 }
 
 export const TransactionList: React.FC<TransactionListProps> = ({
   transactions,
   onDeleteTransaction,
   onOpenAddModal,
+  currency = 'USD',
 }) => {
   const [filterType, setFilterType] = useState<'all' | TransactionType>('all');
   const [searchQuery, setSearchQuery] = useState('');
-
-  const formatCurrency = (val: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-      minimumFractionDigits: 2,
-    }).format(val);
-  };
 
   const formatDate = (dateStr: string) => {
     try {
@@ -175,7 +170,7 @@ export const TransactionList: React.FC<TransactionListProps> = ({
 
                   <div className="tx-right">
                     <div className={`tx-amount ${isIncome ? 'income-amount' : 'expense-amount'}`}>
-                      {isIncome ? '+' : '-'}{formatCurrency(tx.amount)}
+                      {isIncome ? '+' : '-'}{formatCurrency(tx.amount, currency)}
                     </div>
                     <button
                       className="tx-delete-btn"

@@ -30,3 +30,13 @@ export interface FinancialSummary {
   totalExpenses: number;
   savingsRate: number;
 }
+
+export interface CategoryBudget {
+  id: string;
+  category: TransactionCategory;
+  monthlyLimit: number;
+}
+
+export type SupportedCurrency = 'USD' | 'BDT' | 'EUR' | 'GBP';
+
+
