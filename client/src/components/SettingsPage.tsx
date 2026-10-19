@@ -7,6 +7,7 @@ interface SettingsPageProps {
   onCurrencyChange: (newCurrency: SupportedCurrency) => void;
   transactionsCount: number;
   budgetsCount: number;
+  accountsCount: number;
   onResetData: () => void;
 }
 
@@ -28,6 +29,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
   onCurrencyChange,
   transactionsCount,
   budgetsCount,
+  accountsCount,
   onResetData,
 }) => {
   return (
@@ -176,7 +178,11 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
 
           <div className="storage-summary-strip">
             <div className="storage-stat">
-              <span className="storage-stat-label">Transactions in LocalStorage:</span>
+              <span className="storage-stat-label">Accounts:</span>
+              <span className="storage-stat-val">{accountsCount}</span>
+            </div>
+            <div className="storage-stat">
+              <span className="storage-stat-label">Transactions:</span>
               <span className="storage-stat-val">{transactionsCount}</span>
             </div>
             <div className="storage-stat">

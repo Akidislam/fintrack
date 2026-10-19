@@ -86,7 +86,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
       <aside className={`sidebar ${isOpen ? 'sidebar-open' : ''}`}>
         <div className="sidebar-header">
-          <div className="brand-logo">
+          <div
+            className="brand-logo"
+            onClick={() => {
+              setActiveNav('dashboard');
+              onClose();
+            }}
+            style={{ cursor: 'pointer' }}
+            title="FinTrack Dashboard"
+          >
             <div className="brand-icon">
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M12 2v20"></path>

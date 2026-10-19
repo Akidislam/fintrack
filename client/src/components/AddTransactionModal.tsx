@@ -1,18 +1,23 @@
 import React, { useState, useEffect } from 'react';
-import type { Transaction, TransactionType, TransactionCategory, SupportedCurrency } from '../types';
+import type {
+  Transaction,
+  TransactionType,
+  TransactionCategory,
+  SupportedCurrency,
+  Account,
+} from '../types';
 import { CURRENCY_SYMBOLS } from '../utils/formatters';
 
 interface AddTransactionModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onAddTransaction: (newTx: Omit<Transaction, 'id'>) => void;
+  onSaveTransaction: (data: Omit<Transaction, 'id'>, editId?: string) => void;
+  existingTransaction?: Transaction | null;
+  accounts: Account[];
   currency?: SupportedCurrency;
 }
 
-const CATEGORIES: TransactionCategory[] = [
-  'Salary',
-  'Freelance',
-  'Investments',
+const EXPENSE_CATEGORIES: TransactionCategory[] = [
   'Housing',
   'Groceries',
   'Dining',
@@ -24,10 +29,19 @@ const CATEGORIES: TransactionCategory[] = [
   'Other',
 ];
 
+const INCOME_CATEGORIES: TransactionCategory[] = [
+  'Salary',
+  'Freelance',
+  'Investments',
+  'Other',
+];
+
 export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
   isOpen,
   onClose,
-  onAddTransaction,
+  onSaveTransaction,
+  existingTransaction,
+  accounts,
   currency = 'USD',
 }) => {
   const [title, setTitle] = useState('');
@@ -36,7 +50,34 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
   const [category, setCategory] = useState<TransactionCategory>('Groceries');
   const [date, setDate] = useState(() => new Date().toISOString().split('T')[0]);
   const [note, setNote] = useState('');
+  const [accountId, setAccountId] = useState('');
+  const [toAccountId, setToAccountId] = useState('');
   const [error, setError] = useState('');
+
+  // Populate form fields on open or when existingTransaction changes
+  useEffect(() => {
+    if (existingTransaction) {
+      setTitle(existingTransaction.title);
+      setAmount(existingTransaction.amount.toString());
+      setType(existingTransaction.type);
+      setCategory(existingTransaction.category);
+      setDate(existingTransaction.date);
+      setNote(existingTransaction.note ?? '');
+      setAccountId(existingTransaction.accountId ?? '');
+      setToAccountId(existingTransaction.toAccountId ?? '');
+    } else {
+      setTitle('');
+      setAmount('');
+      setType('expense');
+      setCategory('Groceries');
+      setDate(new Date().toISOString().split('T')[0]);
+      setNote('');
+      // Default to the first account if available
+      setAccountId(accounts.length > 0 ? accounts[0].id : '');
+      setToAccountId(accounts.length > 1 ? accounts[1].id : '');
+    }
+    setError('');
+  }, [existingTransaction, isOpen, accounts]);
 
   // Handle ESC key to close modal
   useEffect(() => {
@@ -65,24 +106,42 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
       return;
     }
 
-    onAddTransaction({
-      title: title.trim(),
-      amount: parsedAmount,
-      type,
-      category,
-      date,
-      note: note.trim() || undefined,
-    });
+    if (type === 'transfer') {
+      if (!accountId) {
+        setError('Please select a source account (From Account).');
+        return;
+      }
+      if (!toAccountId) {
+        setError('Please select a destination account (To Account).');
+        return;
+      }
+      if (accountId === toAccountId) {
+        setError('Source and destination accounts must be different.');
+        return;
+      }
+    }
 
-    // Reset form
-    setTitle('');
-    setAmount('');
-    setType('expense');
-    setCategory('Groceries');
-    setDate(new Date().toISOString().split('T')[0]);
-    setNote('');
+    onSaveTransaction(
+      {
+        title: title.trim(),
+        amount: parsedAmount,
+        type,
+        category: type === 'transfer' ? 'Transfer' : category,
+        date,
+        note: note.trim() || undefined,
+        accountId: accountId || undefined,
+        toAccountId: type === 'transfer' ? toAccountId || undefined : undefined,
+      },
+      existingTransaction?.id
+    );
+
     onClose();
   };
+
+  const isCurrentAccountDeleted =
+    Boolean(accountId) && !accounts.some((a) => a.id === accountId);
+  const isToAccountDeleted =
+    Boolean(toAccountId) && !accounts.some((a) => a.id === toAccountId);
 
   return (
     <div className="modal-overlay" onClick={onClose}>
@@ -96,9 +155,13 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
         <div className="modal-header">
           <div className="modal-title-wrap">
             <h3 id="modal-title" className="modal-title">
-              Add New Transaction
+              {existingTransaction ? 'Edit Transaction' : 'Add New Transaction'}
             </h3>
-            <p className="modal-subtitle">Log a new income or expense to your records.</p>
+            <p className="modal-subtitle">
+              {existingTransaction
+                ? `Update details for "${existingTransaction.title}"`
+                : 'Log a new income, expense, or transfer to your records.'}
+            </p>
           </div>
           <button className="modal-close-btn" onClick={onClose} aria-label="Close modal">
             ✕
@@ -108,7 +171,7 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
         {error && <div className="modal-error-alert">{error}</div>}
 
         <form onSubmit={handleSubmit} className="modal-form">
-          {/* Type Toggle: Expense vs Income */}
+          {/* Type Toggle: Expense vs Income vs Transfer */}
           <div className="form-group">
             <label className="form-label">Transaction Type</label>
             <div className="type-toggle-group">
@@ -117,7 +180,7 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
                 className={`type-toggle-btn expense ${type === 'expense' ? 'selected' : ''}`}
                 onClick={() => {
                   setType('expense');
-                  if (category === 'Salary' || category === 'Freelance') {
+                  if (category === 'Salary' || category === 'Freelance' || category === 'Transfer') {
                     setCategory('Groceries');
                   }
                 }}
@@ -134,10 +197,37 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
               >
                 🟢 Income
               </button>
+              <button
+                type="button"
+                className={`type-toggle-btn transfer ${type === 'transfer' ? 'selected' : ''}`}
+                onClick={() => {
+                  setType('transfer');
+                  setCategory('Transfer');
+                  if (!accountId && accounts.length > 0) {
+                    setAccountId(accounts[0].id);
+                  }
+                  if (!toAccountId && accounts.length > 1) {
+                    setToAccountId(accounts[1].id);
+                  }
+                }}
+                disabled={accounts.length < 2 && !existingTransaction}
+                title={
+                  accounts.length < 2 && !existingTransaction
+                    ? 'At least 2 accounts are required to record transfers'
+                    : 'Transfer funds between accounts'
+                }
+              >
+                🔄 Transfer
+              </button>
             </div>
+            {accounts.length < 2 && (
+              <span className="form-hint">
+                💡 Tip: Add 2 or more accounts on the Accounts page to record transfers between them.
+              </span>
+            )}
           </div>
 
-          {/* Title */}
+          {/* Description */}
           <div className="form-group">
             <label htmlFor="tx-title" className="form-label">
               Description / Payee *
@@ -145,7 +235,11 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
             <input
               id="tx-title"
               type="text"
-              placeholder="e.g. Grocery Store, Client Payment"
+              placeholder={
+                type === 'transfer'
+                  ? 'e.g. Transfer to Savings, Pay Credit Card'
+                  : 'e.g. Grocery Store, Client Payment'
+              }
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               className="form-input"
@@ -154,7 +248,7 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
             />
           </div>
 
-          {/* Amount & Category */}
+          {/* Amount & Account / Category */}
           <div className="form-row">
             <div className="form-group flex-1">
               <label htmlFor="tx-amount" className="form-label">
@@ -176,24 +270,106 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
               </div>
             </div>
 
-            <div className="form-group flex-1">
-              <label htmlFor="tx-category" className="form-label">
-                Category
+            {type !== 'transfer' && (
+              <div className="form-group flex-1">
+                <label htmlFor="tx-category" className="form-label">
+                  Category
+                </label>
+                <select
+                  id="tx-category"
+                  value={category}
+                  onChange={(e) => setCategory(e.target.value as TransactionCategory)}
+                  className="form-select"
+                >
+                  {(type === 'income' ? INCOME_CATEGORIES : EXPENSE_CATEGORIES).map((cat) => (
+                    <option key={cat} value={cat}>
+                      {cat}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+          </div>
+
+          {/* Account Selectors */}
+          {type === 'transfer' ? (
+            <div className="form-row">
+              <div className="form-group flex-1">
+                <label htmlFor="tx-from-account" className="form-label">
+                  From Account (Source) *
+                </label>
+                <select
+                  id="tx-from-account"
+                  value={accountId}
+                  onChange={(e) => setAccountId(e.target.value)}
+                  className="form-select"
+                  required
+                >
+                  <option value="">Select source account...</option>
+                  {isCurrentAccountDeleted && (
+                    <option value={accountId} disabled>
+                      ⚠️ Deleted Account
+                    </option>
+                  )}
+                  {accounts.map((acc) => (
+                    <option key={acc.id} value={acc.id}>
+                      {acc.name} ({acc.type})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="form-group flex-1">
+                <label htmlFor="tx-to-account" className="form-label">
+                  To Account (Destination) *
+                </label>
+                <select
+                  id="tx-to-account"
+                  value={toAccountId}
+                  onChange={(e) => setToAccountId(e.target.value)}
+                  className="form-select"
+                  required
+                >
+                  <option value="">Select destination account...</option>
+                  {isToAccountDeleted && (
+                    <option value={toAccountId} disabled>
+                      ⚠️ Deleted Account
+                    </option>
+                  )}
+                  {accounts.map((acc) => (
+                    <option key={acc.id} value={acc.id} disabled={acc.id === accountId}>
+                      {acc.name} ({acc.type})
+                      {acc.id === accountId ? ' (Source)' : ''}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          ) : (
+            <div className="form-group">
+              <label htmlFor="tx-account" className="form-label">
+                {type === 'expense' ? 'Paid From Account' : 'Deposit To Account'}
               </label>
               <select
-                id="tx-category"
-                value={category}
-                onChange={(e) => setCategory(e.target.value as TransactionCategory)}
+                id="tx-account"
+                value={accountId}
+                onChange={(e) => setAccountId(e.target.value)}
                 className="form-select"
               >
-                {CATEGORIES.map((cat) => (
-                  <option key={cat} value={cat}>
-                    {cat}
+                <option value="">-- No Account (Unassigned) --</option>
+                {isCurrentAccountDeleted && (
+                  <option value={accountId} disabled>
+                    ⚠️ Deleted Account
+                  </option>
+                )}
+                {accounts.map((acc) => (
+                  <option key={acc.id} value={acc.id}>
+                    {acc.name} ({acc.type})
                   </option>
                 ))}
               </select>
             </div>
-          </div>
+          )}
 
           {/* Date & Note */}
           <div className="form-row">
@@ -218,7 +394,7 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
               <input
                 id="tx-note"
                 type="text"
-                placeholder="e.g. Dinner with Sarah"
+                placeholder="e.g. Dinner with Sarah, Invoice #102"
                 value={note}
                 onChange={(e) => setNote(e.target.value)}
                 className="form-input"
@@ -231,7 +407,7 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
               Cancel
             </button>
             <button type="submit" className="btn-primary">
-              Add Transaction
+              {existingTransaction ? 'Save Changes' : 'Add Transaction'}
             </button>
           </div>
         </form>

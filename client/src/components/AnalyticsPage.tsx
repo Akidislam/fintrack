@@ -113,7 +113,7 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = ({
       }
       if (tx.type === 'income') {
         monthlyMap[key].income += tx.amount;
-      } else {
+      } else if (tx.type === 'expense') {
         monthlyMap[key].expenses += tx.amount;
       }
     }

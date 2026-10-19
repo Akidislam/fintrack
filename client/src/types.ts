@@ -1,4 +1,4 @@
-export type TransactionType = 'income' | 'expense';
+export type TransactionType = 'income' | 'expense' | 'transfer';
 
 export type TransactionCategory =
   | 'Salary'
@@ -12,6 +12,7 @@ export type TransactionCategory =
   | 'Entertainment'
   | 'Healthcare'
   | 'Shopping'
+  | 'Transfer'
   | 'Other';
 
 export interface Transaction {
@@ -22,6 +23,10 @@ export interface Transaction {
   category: TransactionCategory;
   date: string;
   note?: string;
+  /** Associated primary/source account ID */
+  accountId?: string;
+  /** Destination account ID (used when type === 'transfer') */
+  toAccountId?: string;
 }
 
 export interface FinancialSummary {
@@ -39,4 +44,14 @@ export interface CategoryBudget {
 
 export type SupportedCurrency = 'USD' | 'BDT' | 'EUR' | 'GBP';
 
+export type AccountType = 'Cash' | 'Bank Account' | 'Mobile Wallet' | 'Credit Card';
 
+export interface Account {
+  id: string;
+  name: string;
+  type: AccountType;
+  openingBalance: number;
+  /** ISO date string (YYYY-MM-DD) when the account was added */
+  createdAt: string;
+  note?: string;
+}
