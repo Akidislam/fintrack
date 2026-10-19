@@ -28,3 +28,40 @@ export function isInYearMonth(
     return false;
   }
 }
+
+/**
+ * Checks whether a YYYY-MM-DD date string falls within [startDate, endDate] (inclusive).
+ * Safely handles missing/empty start or end dates.
+ * If both are provided and startDate > endDate, gracefully swaps them to handle the inverted range.
+ */
+export function isDateInRange(
+  dateStr: string,
+  startDate?: string,
+  endDate?: string
+): boolean {
+  if (!dateStr) return false;
+
+  const trimmedStart = startDate?.trim();
+  const trimmedEnd = endDate?.trim();
+
+  // If neither boundary is set, any date is in range
+  if (!trimmedStart && !trimmedEnd) return true;
+
+  // Normalize boundaries if both are provided but inverted
+  const start =
+    trimmedStart && trimmedEnd && trimmedStart > trimmedEnd
+      ? trimmedEnd
+      : trimmedStart;
+  const end =
+    trimmedStart && trimmedEnd && trimmedStart > trimmedEnd
+      ? trimmedStart
+      : trimmedEnd;
+
+  if (start && dateStr < start) {
+    return false;
+  }
+  if (end && dateStr > end) {
+    return false;
+  }
+  return true;
+}
