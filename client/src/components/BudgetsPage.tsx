@@ -2,20 +2,8 @@ import React, { useState } from 'react';
 import type { CategoryBudget, Transaction, TransactionCategory, SupportedCurrency } from '../types';
 import { formatCurrency } from '../utils/formatters';
 import { getCurrentYearMonth, isInYearMonth } from '../utils/dateUtils';
+import { EXPENSE_CATEGORIES } from '../utils/transactionFilters';
 import { BudgetModal } from './BudgetModal';
-
-/** All expense categories that can have a budget set. Must stay in sync with BudgetModal. */
-const BUDGETABLE_CATEGORIES: TransactionCategory[] = [
-  'Housing',
-  'Groceries',
-  'Dining',
-  'Transportation',
-  'Utilities',
-  'Entertainment',
-  'Healthcare',
-  'Shopping',
-  'Other',
-];
 
 interface BudgetsPageProps {
   budgets: CategoryBudget[];
@@ -87,11 +75,12 @@ export const BudgetsPage: React.FC<BudgetsPageProps> = ({
   };
 
   const configuredCategories = budgets.map((b) => b.category);
-  const allCategoriesBudgeted = BUDGETABLE_CATEGORIES.every((cat) =>
+  const allCategoriesBudgeted = EXPENSE_CATEGORIES.every((cat) =>
     configuredCategories.includes(cat)
   );
 
   const handleOpenAddModal = () => {
+    if (allCategoriesBudgeted) return;
     setEditingBudget(null);
     setIsModalOpen(true);
   };
@@ -107,7 +96,7 @@ export const BudgetsPage: React.FC<BudgetsPageProps> = ({
         <div className="section-title-wrap">
           <h2 className="section-title">Monthly Budgets</h2>
           <span className="section-subtitle">
-            {currentMonthLabel} — spending tracked from expense transactions only
+            {currentMonthLabel} • {configuredCategories.length} of {EXPENSE_CATEGORIES.length} expense categories budgeted
           </span>
         </div>
 
@@ -115,9 +104,10 @@ export const BudgetsPage: React.FC<BudgetsPageProps> = ({
           className="btn-primary"
           onClick={handleOpenAddModal}
           disabled={allCategoriesBudgeted}
+          aria-disabled={allCategoriesBudgeted}
           title={
             allCategoriesBudgeted
-              ? 'All expense categories already have a budget set'
+              ? `All ${EXPENSE_CATEGORIES.length} expense categories already have budgets configured`
               : 'Set a monthly budget for an expense category'
           }
         >
@@ -266,11 +256,23 @@ export const BudgetsPage: React.FC<BudgetsPageProps> = ({
             })}
           </div>
 
-          {allCategoriesBudgeted && (
-            <p className="budget-all-set-note">
-              ✅ All {BUDGETABLE_CATEGORIES.length} expense categories have a budget set.
-              Remove a budget to replace it with a different limit.
-            </p>
+          {allCategoriesBudgeted ? (
+            <div className="budget-all-set-banner">
+              <span className="banner-icon">🎯</span>
+              <div className="banner-content">
+                <strong>All {EXPENSE_CATEGORIES.length} expense categories are budgeted</strong>
+                <p>
+                  Every expense category has an active monthly limit. Click the edit icon (✏️) on any budget card to adjust its limit, or delete a budget if you want to remove it.
+                </p>
+              </div>
+            </div>
+          ) : (
+            <div className="budget-unbudgeted-note">
+              <span>
+                💡 {EXPENSE_CATEGORIES.length - configuredCategories.length} categories remaining without budgets:{' '}
+                {EXPENSE_CATEGORIES.filter((c) => !configuredCategories.includes(c)).join(', ')}
+              </span>
+            </div>
           )}
         </>
       )}

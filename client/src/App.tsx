@@ -13,6 +13,7 @@ import { AnalyticsPage } from './components/AnalyticsPage';
 import { SettingsPage } from './components/SettingsPage';
 import { getNavFromLocation, getPathForNav, isValidNavPage, type NavPage } from './utils/navigation';
 import { calculateTotalNetWorth } from './utils/accountUtils';
+import { EXPENSE_CATEGORIES } from './utils/transactionFilters';
 
 export function App() {
   const [transactions, setTransactions] = useState<Transaction[]>(() => {
@@ -21,8 +22,34 @@ export function App() {
   });
 
   const [budgets, setBudgets] = useState<CategoryBudget[]>(() => {
-    const saved = localStorage.getItem('fintrack_budgets');
-    return saved ? JSON.parse(saved) : INITIAL_BUDGETS;
+    try {
+      const saved = localStorage.getItem('fintrack_budgets');
+      if (saved === null) return INITIAL_BUDGETS;
+      const parsed = JSON.parse(saved);
+      if (!Array.isArray(parsed)) return INITIAL_BUDGETS;
+      const seenCategories = new Set<string>();
+      const validBudgets: CategoryBudget[] = [];
+      for (const item of parsed) {
+        if (
+          item &&
+          typeof item.id === 'string' &&
+          typeof item.category === 'string' &&
+          typeof item.monthlyLimit === 'number' &&
+          EXPENSE_CATEGORIES.includes(item.category as TransactionCategory) &&
+          !seenCategories.has(item.category)
+        ) {
+          seenCategories.add(item.category);
+          validBudgets.push({
+            id: item.id,
+            category: item.category as TransactionCategory,
+            monthlyLimit: Math.max(0, Math.round((item.monthlyLimit + Number.EPSILON) * 100) / 100),
+          });
+        }
+      }
+      return validBudgets;
+    } catch {
+      return INITIAL_BUDGETS;
+    }
   });
 
   const [currency, setCurrency] = useState<SupportedCurrency>(() => {

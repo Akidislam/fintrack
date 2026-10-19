@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import type { CategoryBudget, TransactionCategory, SupportedCurrency } from '../types';
 import { CURRENCY_SYMBOLS } from '../utils/formatters';
+import { EXPENSE_CATEGORIES } from '../utils/transactionFilters';
 
 interface BudgetModalProps {
   isOpen: boolean;
@@ -10,18 +11,6 @@ interface BudgetModalProps {
   configuredCategories: TransactionCategory[];
   currency?: SupportedCurrency;
 }
-
-const EXPENSE_CATEGORIES: TransactionCategory[] = [
-  'Housing',
-  'Groceries',
-  'Dining',
-  'Transportation',
-  'Utilities',
-  'Entertainment',
-  'Healthcare',
-  'Shopping',
-  'Other',
-];
 
 export const BudgetModal: React.FC<BudgetModalProps> = ({
   isOpen,
@@ -35,15 +24,27 @@ export const BudgetModal: React.FC<BudgetModalProps> = ({
   const [monthlyLimit, setMonthlyLimit] = useState('');
   const [error, setError] = useState('');
 
+  // Unbudgeted categories that can have a new budget created.
+  // If editing, always include the budget's current category.
+  const availableCategories = EXPENSE_CATEGORIES.filter(
+    (cat) =>
+      !configuredCategories.includes(cat) ||
+      (existingBudget && existingBudget.category === cat)
+  );
+
+  const allCategoriesConfigured =
+    !existingBudget && availableCategories.length === 0;
+
   useEffect(() => {
     if (existingBudget) {
       setCategory(existingBudget.category);
       setMonthlyLimit(existingBudget.monthlyLimit.toString());
       setError('');
     } else {
-      // Pick first unconfigured category if available
-      const available = EXPENSE_CATEGORIES.find((cat) => !configuredCategories.includes(cat));
-      setCategory(available || 'Groceries');
+      const available = EXPENSE_CATEGORIES.filter((cat) => !configuredCategories.includes(cat));
+      if (available.length > 0) {
+        setCategory(available[0]);
+      }
       setMonthlyLimit('');
       setError('');
     }
@@ -60,8 +61,7 @@ export const BudgetModal: React.FC<BudgetModalProps> = ({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, onClose]);
 
-  const allCategoriesConfigured =
-    !existingBudget && EXPENSE_CATEGORIES.every((cat) => configuredCategories.includes(cat));
+  if (!isOpen) return null;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -87,6 +87,54 @@ export const BudgetModal: React.FC<BudgetModalProps> = ({
     onSave(category, cleanLimit, existingBudget?.id);
     onClose();
   };
+
+  // If opened when all categories are already budgeted, show a clear informational dialog
+  // instead of a confusing disabled form.
+  if (allCategoriesConfigured) {
+    return (
+      <div className="modal-overlay" onClick={onClose}>
+        <div className="modal-container" onClick={(e) => e.stopPropagation()}>
+          <div className="modal-header">
+            <div>
+              <h2 className="modal-title">All Categories Budgeted</h2>
+              <p className="modal-subtitle">
+                All {EXPENSE_CATEGORIES.length} expense categories already have monthly budgets
+              </p>
+            </div>
+            <button className="modal-close-btn" onClick={onClose} aria-label="Close modal">
+              ✕
+            </button>
+          </div>
+
+          <div className="modal-all-budgeted-content">
+            <div className="modal-all-budgeted-icon">🎯</div>
+            <h3 className="modal-all-budgeted-heading">Every expense category has an active budget</h3>
+            <p className="modal-all-budgeted-desc">
+              FinTrack tracks budgets across all <strong>{EXPENSE_CATEGORIES.length} expense categories</strong>. Each category currently has a monthly limit assigned, so no new category budget can be added right now.
+            </p>
+
+            <div className="modal-category-chips">
+              {EXPENSE_CATEGORIES.map((cat) => (
+                <span key={cat} className="modal-category-chip">
+                  ✓ {cat}
+                </span>
+              ))}
+            </div>
+
+            <p className="modal-all-budgeted-hint">
+              💡 <strong>Want to change a spending limit?</strong> Close this window and click the edit icon (✏️) on any budget card to update its monthly limit, or delete a budget to free up that category.
+            </p>
+          </div>
+
+          <div className="modal-actions">
+            <button type="button" className="btn-primary" onClick={onClose} autoFocus>
+              Got It
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="modal-overlay" onClick={onClose}>
@@ -119,23 +167,21 @@ export const BudgetModal: React.FC<BudgetModalProps> = ({
               className="form-select"
               value={category}
               onChange={(e) => setCategory(e.target.value as TransactionCategory)}
-              disabled={!!existingBudget || allCategoriesConfigured}
+              disabled={!!existingBudget}
             >
-              {EXPENSE_CATEGORIES.map((cat) => {
-                const isAlreadyConfigured =
-                  !existingBudget && configuredCategories.includes(cat);
-                return (
-                  <option key={cat} value={cat} disabled={isAlreadyConfigured}>
-                    {cat} {isAlreadyConfigured ? '(Already budgeted)' : ''}
-                  </option>
-                );
-              })}
+              {availableCategories.map((cat) => (
+                <option key={cat} value={cat}>
+                  {cat}
+                </option>
+              ))}
             </select>
-            {allCategoriesConfigured && (
-              <span className="form-hint">
-                ✅ All expense categories already have a budget. Delete an existing budget to free up a category.
-              </span>
-            )}
+            <span className="form-hint">
+              {existingBudget
+                ? 'Category cannot be changed while editing. Delete this budget to set one for a different category.'
+                : `${availableCategories.length} expense ${
+                    availableCategories.length === 1 ? 'category' : 'categories'
+                  } currently available to budget.`}
+            </span>
           </div>
 
           <div className="form-group">
@@ -153,8 +199,7 @@ export const BudgetModal: React.FC<BudgetModalProps> = ({
                 value={monthlyLimit}
                 onChange={(e) => setMonthlyLimit(e.target.value)}
                 className="form-input"
-                autoFocus={!allCategoriesConfigured}
-                disabled={allCategoriesConfigured}
+                autoFocus
                 required
               />
             </div>
@@ -164,11 +209,7 @@ export const BudgetModal: React.FC<BudgetModalProps> = ({
             <button type="button" className="btn-secondary" onClick={onClose}>
               Cancel
             </button>
-            <button
-              type="submit"
-              className="btn-primary"
-              disabled={allCategoriesConfigured}
-            >
+            <button type="submit" className="btn-primary">
               {existingBudget ? 'Save Changes' : 'Create Budget'}
             </button>
           </div>
