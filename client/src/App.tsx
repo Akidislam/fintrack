@@ -12,6 +12,7 @@ import { BudgetsPage } from './components/BudgetsPage';
 import { AnalyticsPage } from './components/AnalyticsPage';
 import { SettingsPage } from './components/SettingsPage';
 import { getNavFromLocation, getPathForNav, isValidNavPage, type NavPage } from './utils/navigation';
+import { calculateTotalNetWorth } from './utils/accountUtils';
 
 export function App() {
   const [transactions, setTransactions] = useState<Transaction[]>(() => {
@@ -148,8 +149,8 @@ export function App() {
     checkBackend();
   }, []);
 
-  // Compute live summary metrics
-  // Note: Transfers do not count as income or expense
+  // Compute live summary metrics.
+  // Note: Transfers do not count as income or expense.
   const summary: FinancialSummary = transactions.reduce(
     (acc, tx) => {
       if (tx.type === 'income') {
@@ -167,7 +168,14 @@ export function App() {
     }
   );
 
-  summary.totalBalance = summary.totalIncome - summary.totalExpenses;
+  // totalBalance: when accounts exist, use the true net worth (sum of all
+  // account balances = opening balances + income − expenses ± transfers).
+  // Fallback to income − expenses when no accounts have been created yet.
+  summary.totalBalance =
+    accounts.length > 0
+      ? calculateTotalNetWorth(accounts, transactions)
+      : summary.totalIncome - summary.totalExpenses;
+
   summary.savingsRate =
     summary.totalIncome > 0
       ? Math.max(0, ((summary.totalIncome - summary.totalExpenses) / summary.totalIncome) * 100)

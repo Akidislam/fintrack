@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import type { CategoryBudget, Transaction, TransactionCategory, SupportedCurrency } from '../types';
 import { formatCurrency } from '../utils/formatters';
+import { getCurrentYearMonth, isInYearMonth } from '../utils/dateUtils';
 import { BudgetModal } from './BudgetModal';
 
 interface BudgetsPageProps {
@@ -44,21 +45,9 @@ export const BudgetsPage: React.FC<BudgetsPageProps> = ({
     }
   };
 
-  // Determine if a transaction date belongs to the current calendar month
-  const isCurrentMonth = (dateStr: string): boolean => {
-    try {
-      const parts = dateStr.split('-');
-      if (parts.length < 2) return false;
-      const txYear = parseInt(parts[0], 10);
-      const txMonth = parseInt(parts[1], 10);
-      const now = new Date();
-      const currentYear = now.getFullYear();
-      const currentMonth = now.getMonth() + 1;
-      return txYear === currentYear && txMonth === currentMonth;
-    } catch {
-      return false;
-    }
-  };
+  // Compute current year/month once outside filter to avoid calling
+  // new Date() inside render (React purity lint rule).
+  const currentYearMonth = getCurrentYearMonth();
 
   // Calculate current-month spending for a specific category (expenses only)
   const calculateCurrentMonthSpending = (category: TransactionCategory): number => {
@@ -67,7 +56,7 @@ export const BudgetsPage: React.FC<BudgetsPageProps> = ({
         (tx) =>
           tx.type === 'expense' &&
           tx.category === category &&
-          isCurrentMonth(tx.date)
+          isInYearMonth(tx.date, currentYearMonth)
       )
       .reduce((sum, tx) => sum + tx.amount, 0);
   };

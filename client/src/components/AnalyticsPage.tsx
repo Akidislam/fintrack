@@ -1,6 +1,7 @@
 import React from 'react';
 import type { Transaction, SupportedCurrency } from '../types';
 import { formatCurrency } from '../utils/formatters';
+import { getCurrentYearMonth, isInYearMonth } from '../utils/dateUtils';
 
 interface AnalyticsPageProps {
   transactions: Transaction[];
@@ -49,19 +50,11 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = ({
     }
   };
 
-  // Determine if a transaction belongs to the current calendar month
-  const isCurrentMonth = (dateStr: string): boolean => {
-    try {
-      const parts = dateStr.split('-');
-      if (parts.length < 2) return false;
-      const txYear = parseInt(parts[0], 10);
-      const txMonth = parseInt(parts[1], 10);
-      const now = new Date();
-      return txYear === now.getFullYear() && txMonth === now.getMonth() + 1;
-    } catch {
-      return false;
-    }
-  };
+  // Determine if a transaction belongs to the current calendar month.
+  // getCurrentYearMonth() is called once here (outside any map/filter) to
+  // satisfy the React purity lint rule (avoids new Date() in render).
+  const currentYearMonth = getCurrentYearMonth();
+  const isCurrentMonth = (dateStr: string) => isInYearMonth(dateStr, currentYearMonth);
 
   // 1. Current Month KPIs
   const currentMonthTransactions = transactions.filter((tx) => isCurrentMonth(tx.date));

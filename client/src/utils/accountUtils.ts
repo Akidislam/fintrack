@@ -99,3 +99,22 @@ export function getAccountName(
   }
   return { name: 'Deleted Account', isDeleted: true };
 }
+
+/**
+ * Calculates the total net worth across all accounts.
+ * Sum of all account balances (opening balance + linked transactions).
+ * Credit Card balances are included as-is (negative = debt).
+ *
+ * Returns 0 when the accounts array is empty.
+ */
+export function calculateTotalNetWorth(
+  accounts: Account[],
+  transactions: Transaction[]
+): number {
+  if (accounts.length === 0) return 0;
+  const total = accounts.reduce(
+    (sum, account) => sum + calculateAccountBalance(account, transactions),
+    0
+  );
+  return Math.round((total + Number.EPSILON) * 100) / 100;
+}
