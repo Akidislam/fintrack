@@ -60,19 +60,31 @@ export const BudgetModal: React.FC<BudgetModalProps> = ({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, onClose]);
 
-  if (!isOpen) return null;
+  const allCategoriesConfigured =
+    !existingBudget && EXPENSE_CATEGORIES.every((cat) => configuredCategories.includes(cat));
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
 
+    if (allCategoriesConfigured) {
+      setError('All expense categories already have a budget configured.');
+      return;
+    }
+
+    if (!existingBudget && configuredCategories.includes(category)) {
+      setError('A budget for this category already exists.');
+      return;
+    }
+
     const parsedLimit = parseFloat(monthlyLimit);
-    if (isNaN(parsedLimit) || parsedLimit <= 0) {
+    if (!Number.isFinite(parsedLimit) || parsedLimit <= 0) {
       setError('Please enter a valid positive monthly budget amount.');
       return;
     }
 
-    onSave(category, parsedLimit, existingBudget?.id);
+    const cleanLimit = Math.round((parsedLimit + Number.EPSILON) * 100) / 100;
+    onSave(category, cleanLimit, existingBudget?.id);
     onClose();
   };
 
@@ -107,7 +119,7 @@ export const BudgetModal: React.FC<BudgetModalProps> = ({
               className="form-select"
               value={category}
               onChange={(e) => setCategory(e.target.value as TransactionCategory)}
-              disabled={!!existingBudget}
+              disabled={!!existingBudget || allCategoriesConfigured}
             >
               {EXPENSE_CATEGORIES.map((cat) => {
                 const isAlreadyConfigured =
@@ -119,6 +131,11 @@ export const BudgetModal: React.FC<BudgetModalProps> = ({
                 );
               })}
             </select>
+            {allCategoriesConfigured && (
+              <span className="form-hint">
+                ✅ All expense categories already have a budget. Delete an existing budget to free up a category.
+              </span>
+            )}
           </div>
 
           <div className="form-group">
@@ -136,7 +153,8 @@ export const BudgetModal: React.FC<BudgetModalProps> = ({
                 value={monthlyLimit}
                 onChange={(e) => setMonthlyLimit(e.target.value)}
                 className="form-input"
-                autoFocus
+                autoFocus={!allCategoriesConfigured}
+                disabled={allCategoriesConfigured}
                 required
               />
             </div>
@@ -146,7 +164,11 @@ export const BudgetModal: React.FC<BudgetModalProps> = ({
             <button type="button" className="btn-secondary" onClick={onClose}>
               Cancel
             </button>
-            <button type="submit" className="btn-primary">
+            <button
+              type="submit"
+              className="btn-primary"
+              disabled={allCategoriesConfigured}
+            >
               {existingBudget ? 'Save Changes' : 'Create Budget'}
             </button>
           </div>
