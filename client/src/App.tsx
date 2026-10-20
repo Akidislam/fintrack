@@ -155,25 +155,34 @@ export function App() {
 
   // Check Express backend health check endpoint
   useEffect(() => {
+    let isMounted = true;
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 2000);
+
     const checkBackend = async () => {
       try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 2000);
         const res = await fetch('http://localhost:5000/api/health', {
           signal: controller.signal,
         });
-        clearTimeout(timeoutId);
-        if (res.ok) {
-          setApiStatus('online');
-        } else {
-          setApiStatus('offline');
+        if (isMounted) {
+          setApiStatus(res.ok ? 'online' : 'offline');
         }
       } catch {
-        setApiStatus('offline');
+        if (isMounted) {
+          setApiStatus('offline');
+        }
+      } finally {
+        clearTimeout(timeoutId);
       }
     };
 
-    checkBackend();
+    void checkBackend();
+
+    return () => {
+      isMounted = false;
+      controller.abort();
+      clearTimeout(timeoutId);
+    };
   }, []);
 
   // Compute live summary metrics.
