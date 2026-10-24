@@ -73,8 +73,8 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
               <span className="settings-info-val">React + TypeScript + Vite</span>
             </div>
             <div className="settings-info-item">
-              <span className="settings-info-label">Mode</span>
-              <span className="settings-info-val">Browser-Only (Local Prototype)</span>
+              <span className="settings-info-label">Backend</span>
+              <span className="settings-info-val">Node.js + PostgreSQL</span>
             </div>
           </div>
         </div>
@@ -126,9 +126,9 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
 
           <div className="currency-preview-box">
             <span className="preview-label">Live Preview:</span>
-            <span className="preview-income">+{formatCurrency(4850, currency)}</span>
+            <span className="preview-income">+{formatCurrency(1000, currency)}</span>
             <span className="preview-separator">•</span>
-            <span className="preview-expense">-{formatCurrency(1450, currency)}</span>
+            <span className="preview-expense">-{formatCurrency(250, currency)}</span>
           </div>
         </div>
 
@@ -141,36 +141,26 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
                 Information regarding data persistence and backend connectivity
               </p>
             </div>
-            <span className="settings-storage-pill">Browser LocalStorage</span>
+            <span className="settings-storage-pill">PostgreSQL & Session Storage</span>
           </div>
 
           <div className="storage-points-list">
             <div className="storage-point-item">
+              <div className="storage-point-icon">🔒</div>
+              <div className="storage-point-text">
+                <span className="storage-point-title">Authenticated Data Isolation</span>
+                <p className="storage-point-desc">
+                  Accounts and categories are synchronized with the secure PostgreSQL backend. User data is strictly isolated to your authenticated account session.
+                </p>
+              </div>
+            </div>
+
+            <div className="storage-point-item">
               <div className="storage-point-icon">💾</div>
               <div className="storage-point-text">
-                <span className="storage-point-title">Browser-Only Persistence</span>
+                <span className="storage-point-title">Session Persistence</span>
                 <p className="storage-point-desc">
-                  All transactions, monthly category budgets, and display settings are stored locally in your browser's <code>localStorage</code>.
-                </p>
-              </div>
-            </div>
-
-            <div className="storage-point-item">
-              <div className="storage-point-icon">🔌</div>
-              <div className="storage-point-text">
-                <span className="storage-point-title">No Database Synchronization</span>
-                <p className="storage-point-desc">
-                  This application currently runs purely in local frontend mode. PostgreSQL database setup, backend API persistence, and automated cloud sync are scheduled for a future milestone.
-                </p>
-              </div>
-            </div>
-
-            <div className="storage-point-item">
-              <div className="storage-point-icon">ℹ️</div>
-              <div className="storage-point-text">
-                <span className="storage-point-title">Cache & Session Scope</span>
-                <p className="storage-point-desc">
-                  Changes remain saved across browser refreshes and tabs. Clearing browser website data or using Private/Incognito mode will revert data back to initial mock records.
+                  Your transactions and preferences are scoped to your user account and automatically cleared upon logout to prevent cross-account data leakage.
                 </p>
               </div>
             </div>
@@ -199,9 +189,9 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
                 type="button"
                 className="reset-data-btn"
                 onClick={onResetData}
-                title="Reset local storage back to initial sample records"
+                title="Clear all local data and reset balances to zero"
               >
-                Reset Sample Data
+                Clear Local Data
               </button>
             </div>
           </div>

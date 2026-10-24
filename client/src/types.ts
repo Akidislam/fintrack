@@ -72,3 +72,11 @@ export interface Category {
   createdAt: string;
   updatedAt: string;
 }
+
+export interface User {
+  id: string;
+  name: string;
+  email: string;
+  currency: string;
+  createdAt: string;
+}

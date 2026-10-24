@@ -18,6 +18,18 @@ export function isValidUUID(id: unknown): id is string {
   return typeof id === "string" && UUID_REGEX.test(id);
 }
 
+function getAuthUserId(req: Request, res: Response): string | null {
+  const userId = req.user?.userId;
+  if (!userId) {
+    res.status(401).json({
+      success: false,
+      message: "Authentication required. Please log in.",
+    });
+    return null;
+  }
+  return userId;
+}
+
 interface AccountRow {
   id: string;
   name: string;
@@ -67,7 +79,7 @@ function mapAccountRow(row: AccountRow): AccountResponse {
 }
 
 /**
- * Standard SQL SELECT with real-time balance aggregation
+ * Standard SQL SELECT with real-time balance aggregation strictly scoped to the account's user
  */
 const ACCOUNT_SELECT_SQL = `
   SELECT 
@@ -92,21 +104,21 @@ const ACCOUNT_SELECT_SQL = `
           END
         )
         FROM transactions t
-        WHERE t.account_id = a.id OR t.to_account_id = a.id
+        WHERE (t.account_id = a.id OR t.to_account_id = a.id) AND t.user_id = a.user_id
       ), 0),
       2
     ) AS current_balance,
     (
       SELECT COUNT(*)::int
       FROM transactions t
-      WHERE t.account_id = a.id OR t.to_account_id = a.id
+      WHERE (t.account_id = a.id OR t.to_account_id = a.id) AND t.user_id = a.user_id
     ) AS transaction_count
   FROM accounts a
 `;
 
 /**
  * GET /api/accounts
- * List all accounts for the current user with calculated current balances.
+ * List all accounts for the authenticated user with calculated current balances.
  * Optional query param: ?includeArchived=true
  */
 export async function getAccounts(
@@ -115,6 +127,9 @@ export async function getAccounts(
   next: NextFunction
 ): Promise<void> {
   try {
+    const userId = getAuthUserId(req, res);
+    if (!userId) return;
+
     const includeArchived = req.query.includeArchived === "true";
 
     const query = `
@@ -124,7 +139,7 @@ export async function getAccounts(
       ORDER BY a.created_at DESC;
     `;
 
-    const result = await pool.query<AccountRow>(query, [DEFAULT_USER_ID]);
+    const result = await pool.query<AccountRow>(query, [userId]);
     const accounts = result.rows.map(mapAccountRow);
 
     res.status(200).json({
@@ -139,7 +154,8 @@ export async function getAccounts(
 
 /**
  * GET /api/accounts/:id
- * Retrieve a single account by ID with calculated current balance.
+ * Retrieve a single account by ID, verifying ownership by the authenticated user.
+ * Returns safe 404 if the account does not exist or belongs to another user.
  */
 export async function getAccountById(
   req: Request,
@@ -147,6 +163,9 @@ export async function getAccountById(
   next: NextFunction
 ): Promise<void> {
   try {
+    const userId = getAuthUserId(req, res);
+    if (!userId) return;
+
     const { id } = req.params;
 
     if (!isValidUUID(id)) {
@@ -162,7 +181,7 @@ export async function getAccountById(
       WHERE a.id = $1 AND a.user_id = $2;
     `;
 
-    const result = await pool.query<AccountRow>(query, [id, DEFAULT_USER_ID]);
+    const result = await pool.query<AccountRow>(query, [id, userId]);
 
     if (result.rows.length === 0) {
       res.status(404).json({
@@ -183,7 +202,8 @@ export async function getAccountById(
 
 /**
  * POST /api/accounts
- * Create a new account with validated input.
+ * Create a new account for the authenticated user.
+ * Disregards any userId supplied in request body; always binds to session userId.
  */
 export async function createAccount(
   req: Request,
@@ -191,6 +211,9 @@ export async function createAccount(
   next: NextFunction
 ): Promise<void> {
   try {
+    const userId = getAuthUserId(req, res);
+    if (!userId) return;
+
     const { name, type, openingBalance, currency, note }: CreateAccountDTO = req.body;
 
     // Validate name
@@ -262,7 +285,7 @@ export async function createAccount(
     `;
 
     const insertResult = await pool.query(insertQuery, [
-      DEFAULT_USER_ID,
+      userId,
       trimmedName,
       type,
       cleanBalance,
@@ -302,7 +325,8 @@ export async function createAccount(
 
 /**
  * PUT /api/accounts/:id
- * Update an account's details.
+ * Update an account's details after verifying ownership by the authenticated user.
+ * Returns safe 404 if the account belongs to another user.
  */
 export async function updateAccount(
   req: Request,
@@ -310,6 +334,9 @@ export async function updateAccount(
   next: NextFunction
 ): Promise<void> {
   try {
+    const userId = getAuthUserId(req, res);
+    if (!userId) return;
+
     const { id } = req.params;
 
     if (!isValidUUID(id)) {
@@ -354,10 +381,10 @@ export async function updateAccount(
       return;
     }
 
-    // Check existing account
+    // Check existing account owned by this user
     const checkResult = await pool.query(
       `SELECT id FROM accounts WHERE id = $1 AND user_id = $2;`,
-      [id, DEFAULT_USER_ID]
+      [id, userId]
     );
 
     if (checkResult.rows.length === 0) {
@@ -454,7 +481,7 @@ export async function updateAccount(
 
     updates.push(`updated_at = CURRENT_TIMESTAMP`);
 
-    values.push(id, DEFAULT_USER_ID);
+    values.push(id, userId);
     const updateSql = `
       UPDATE accounts
       SET ${updates.join(", ")}
@@ -469,7 +496,7 @@ export async function updateAccount(
         ${ACCOUNT_SELECT_SQL}
         WHERE a.id = $1 AND a.user_id = $2;
       `,
-      [id, DEFAULT_USER_ID]
+      [id, userId]
     );
 
     res.status(200).json({
@@ -483,7 +510,8 @@ export async function updateAccount(
 
 /**
  * DELETE /api/accounts/:id
- * Delete an account only if safe (no associated transactions, debts, or repayments).
+ * Delete an account only if owned by authenticated user and safe (no associated transactions, debts, or repayments).
+ * Returns safe 404 if the account belongs to another user.
  */
 export async function deleteAccount(
   req: Request,
@@ -492,6 +520,9 @@ export async function deleteAccount(
 ): Promise<void> {
   const client = await pool.connect();
   try {
+    const userId = getAuthUserId(req, res);
+    if (!userId) return;
+
     const { id } = req.params;
 
     if (!isValidUUID(id)) {
@@ -504,10 +535,10 @@ export async function deleteAccount(
 
     await client.query("BEGIN");
 
-    // Check existence
+    // Check existence and ownership
     const checkResult = await client.query<{ id: string; name: string }>(
       `SELECT id, name FROM accounts WHERE id = $1 AND user_id = $2 FOR UPDATE;`,
-      [id, DEFAULT_USER_ID]
+      [id, userId]
     );
 
     if (checkResult.rows.length === 0) {
@@ -563,7 +594,7 @@ export async function deleteAccount(
     // Safe to delete
     await client.query(
       `DELETE FROM accounts WHERE id = $1 AND user_id = $2;`,
-      [id, DEFAULT_USER_ID]
+      [id, userId]
     );
 
     await client.query("COMMIT");

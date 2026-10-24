@@ -48,3 +48,43 @@ export interface CategoryResponse {
   createdAt: string;
   updatedAt: string;
 }
+
+export interface CreateCategoryDTO {
+  name: string;
+  type: CategoryType;
+  icon?: string;
+  color?: string;
+}
+
+export interface UserResponse {
+  id: string;
+  name: string;
+  email: string;
+  currency: string;
+  createdAt: string;
+}
+
+export interface RegisterDTO {
+  name: string;
+  email: string;
+  password: string;
+  currency?: string;
+}
+
+export interface LoginDTO {
+  email: string;
+  password: string;
+}
+
+export interface AuthTokenPayload {
+  userId: string;
+  email: string;
+}
+
+declare global {
+  namespace Express {
+    interface Request {
+      user?: AuthTokenPayload;
+    }
+  }
+}

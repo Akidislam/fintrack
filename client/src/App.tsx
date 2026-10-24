@@ -8,9 +8,10 @@ import type {
   SupportedCurrency,
   Account,
   Category,
+  User,
 } from './types';
-import { api } from './services/api';
-import { INITIAL_TRANSACTIONS, INITIAL_BUDGETS } from './data/mockData';
+import { api, ApiError } from './services/api';
+import { AuthPage } from './components/AuthPage';
 import { Sidebar } from './components/Sidebar';
 import { SummaryCards } from './components/SummaryCards';
 import { TransactionList } from './components/TransactionList';
@@ -24,20 +25,25 @@ import { getNavFromLocation, getPathForNav, isValidNavPage, type NavPage } from 
 import { calculateTotalNetWorth } from './utils/accountUtils';
 import { EXPENSE_CATEGORIES } from './utils/transactionFilters';
 
-export function App() {
-  const [transactions, setTransactions] = useState<Transaction[]>(() => {
-    const saved = localStorage.getItem('fintrack_transactions');
-    return saved ? JSON.parse(saved) : INITIAL_TRANSACTIONS;
-  });
+function loadUserTransactions(userId: string): Transaction[] {
+  try {
+    localStorage.removeItem('fintrack_transactions');
+    const saved = localStorage.getItem(`fintrack_transactions_${userId}`);
+    return saved ? (JSON.parse(saved) as Transaction[]) : [];
+  } catch {
+    return [];
+  }
+}
 
-  const [budgets, setBudgets] = useState<CategoryBudget[]>(() => {
-    try {
-      const saved = localStorage.getItem('fintrack_budgets');
-      if (saved === null) return INITIAL_BUDGETS;
-      const parsed = JSON.parse(saved);
-      if (!Array.isArray(parsed)) return INITIAL_BUDGETS;
-      const seenCategories = new Set<string>();
-      const validBudgets: CategoryBudget[] = [];
+function loadUserBudgets(userId: string): CategoryBudget[] {
+  try {
+    localStorage.removeItem('fintrack_budgets');
+    const saved = localStorage.getItem(`fintrack_budgets_${userId}`);
+    if (!saved) return [];
+    const parsed = JSON.parse(saved);
+    const seenCategories = new Set<string>();
+    const validBudgets: CategoryBudget[] = [];
+    if (Array.isArray(parsed)) {
       for (const item of parsed) {
         if (
           item &&
@@ -55,31 +61,34 @@ export function App() {
           });
         }
       }
-      return validBudgets;
-    } catch {
-      return INITIAL_BUDGETS;
     }
-  });
+    return validBudgets;
+  } catch {
+    return [];
+  }
+}
 
-  const [currency, setCurrency] = useState<SupportedCurrency>(() => {
-    const saved = localStorage.getItem('fintrack_currency');
-    return (saved as SupportedCurrency) || 'USD';
-  });
+export function App() {
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [isCheckingAuth, setIsCheckingAuth] = useState(true);
 
-  const [accounts, setAccounts] = useState<Account[]>(() => {
-    try {
-      const saved = localStorage.getItem('fintrack_accounts');
-      return saved ? (JSON.parse(saved) as Account[]) : [];
-    } catch {
-      return [];
-    }
-  });
+  // Financial state starts strictly empty for authenticated users
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [budgets, setBudgets] = useState<CategoryBudget[]>([]);
+
+  // Accounts state is strictly sourced from backend API (no stale localStorage fallback)
+  const [accounts, setAccounts] = useState<Account[]>([]);
   const [accountsLoading, setAccountsLoading] = useState(false);
   const [accountsError, setAccountsError] = useState<string | null>(null);
 
   const [, setCategories] = useState<Category[]>([]);
   const [, setCategoriesLoading] = useState(false);
   const [, setCategoriesError] = useState<string | null>(null);
+
+  const [currency, setCurrency] = useState<SupportedCurrency>(() => {
+    const saved = localStorage.getItem('fintrack_currency');
+    return (saved as SupportedCurrency) || 'USD';
+  });
 
   const [activeNav, setActiveNav] = useState<NavPage>(() => getNavFromLocation());
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -94,8 +103,14 @@ export function App() {
     try {
       const data = await api.getAccounts();
       setAccounts(data);
-      localStorage.setItem('fintrack_accounts', JSON.stringify(data));
     } catch (err) {
+      if (err instanceof ApiError && err.status === 401) {
+        setCurrentUser(null);
+        setAccounts([]);
+        setTransactions([]);
+        setBudgets([]);
+        return;
+      }
       const message = err instanceof Error ? err.message : 'Failed to load accounts from server';
       setAccountsError(message);
     } finally {
@@ -111,6 +126,13 @@ export function App() {
       const data = await api.getCategories();
       setCategories(data);
     } catch (err) {
+      if (err instanceof ApiError && err.status === 401) {
+        setCurrentUser(null);
+        setAccounts([]);
+        setTransactions([]);
+        setBudgets([]);
+        return;
+      }
       const message = err instanceof Error ? err.message : 'Failed to load categories from server';
       setCategoriesError(message);
     } finally {
@@ -118,58 +140,91 @@ export function App() {
     }
   }, []);
 
+  // Check initial authentication state via /api/auth/me on app mount
+  useEffect(() => {
+    let isMounted = true;
+    const controller = new AbortController();
+
+    const verifySession = async () => {
+      try {
+        const user = await api.getMe(controller.signal);
+        if (isMounted) {
+          setCurrentUser(user);
+          setTransactions(loadUserTransactions(user.id));
+          setBudgets(loadUserBudgets(user.id));
+          if (user.currency) {
+            setCurrency(user.currency as SupportedCurrency);
+          }
+          setApiStatus('online');
+          void loadAccounts();
+          void loadCategories();
+        }
+      } catch {
+        if (isMounted) {
+          setCurrentUser(null);
+          setTransactions([]);
+          setBudgets([]);
+          setAccounts([]);
+          // Check if backend is reachable
+          try {
+            await api.checkHealth(controller.signal);
+            setApiStatus('online');
+          } catch {
+            setApiStatus('offline');
+          }
+        }
+      } finally {
+        if (isMounted) {
+          setIsCheckingAuth(false);
+        }
+      }
+    };
+
+    void verifySession();
+
+    return () => {
+      isMounted = false;
+      controller.abort();
+    };
+  }, [loadAccounts, loadCategories]);
+
+  // Sync transactions to user-scoped localStorage
+  useEffect(() => {
+    if (currentUser?.id) {
+      localStorage.setItem(`fintrack_transactions_${currentUser.id}`, JSON.stringify(transactions));
+    }
+  }, [transactions, currentUser?.id]);
+
+  // Sync budgets to user-scoped localStorage
+  useEffect(() => {
+    if (currentUser?.id) {
+      localStorage.setItem(`fintrack_budgets_${currentUser.id}`, JSON.stringify(budgets));
+    }
+  }, [budgets, currentUser?.id]);
+
   // Handle user navigation (updates state, browser history URL, and localStorage)
   const handleNavigate = (nav: string) => {
     if (!isValidNavPage(nav)) return;
     if (nav === activeNav) return;
-
-    setActiveNav(nav);
-    localStorage.setItem('fintrack_active_nav', nav);
-
-    const targetPath = getPathForNav(nav);
-    if (window.location.pathname !== targetPath) {
-      window.history.pushState({ nav }, '', targetPath);
-    }
+    setActiveNav(nav as NavPage);
+    const path = getPathForNav(nav as NavPage);
+    window.history.pushState({ nav }, '', path);
+    localStorage.setItem('fintrack_nav', nav);
   };
 
-  // Sync state with browser back / forward navigation
+  // Listen to browser Back/Forward navigation
   useEffect(() => {
-    const handlePopState = (e: Event) => {
-      const popStateEvent = e as PopStateEvent;
-      const pageFromState = popStateEvent.state?.nav;
-      if (isValidNavPage(pageFromState)) {
-        setActiveNav(pageFromState);
-        localStorage.setItem('fintrack_active_nav', pageFromState);
-      } else {
-        const pageFromLocation = getNavFromLocation();
-        setActiveNav(pageFromLocation);
-        localStorage.setItem('fintrack_active_nav', pageFromLocation);
-      }
+    const handlePopState = () => {
+      setActiveNav(getNavFromLocation());
     };
-
     window.addEventListener('popstate', handlePopState);
-    window.addEventListener('hashchange', handlePopState);
-    return () => {
-      window.removeEventListener('popstate', handlePopState);
-      window.removeEventListener('hashchange', handlePopState);
-    };
+    return () => window.removeEventListener('popstate', handlePopState);
   }, []);
 
-  // Normalize initial history state entry and sync URL with current page
-  useEffect(() => {
-    const targetPath = getPathForNav(activeNav);
-    if (window.location.pathname !== targetPath && !window.location.hash && !window.location.search) {
-      window.history.replaceState({ nav: activeNav }, '', targetPath);
-    } else if (!window.history.state || window.history.state.nav !== activeNav) {
-      window.history.replaceState({ nav: activeNav }, '', window.location.pathname);
-    }
-    localStorage.setItem('fintrack_active_nav', activeNav);
-  }, [activeNav]);
-
-  // Synchronize browser document title
+  // Sync active page title to browser document
   useEffect(() => {
     const pageTitles: Record<NavPage, string> = {
-      dashboard: 'FinTrack Dashboard',
+      dashboard: 'Dashboard | FinTrack',
       accounts: 'Accounts | FinTrack',
       transactions: 'Transactions | FinTrack',
       budgets: 'Budgets | FinTrack',
@@ -179,59 +234,12 @@ export function App() {
     document.title = pageTitles[activeNav] || 'FinTrack';
   }, [activeNav]);
 
-  // Sync transactions to localStorage for persistent session testing
-  useEffect(() => {
-    localStorage.setItem('fintrack_transactions', JSON.stringify(transactions));
-  }, [transactions]);
-
-  // Sync budgets to localStorage
-  useEffect(() => {
-    localStorage.setItem('fintrack_budgets', JSON.stringify(budgets));
-  }, [budgets]);
-
   // Sync currency preference to localStorage
   useEffect(() => {
     localStorage.setItem('fintrack_currency', currency);
   }, [currency]);
 
-  // Sync accounts to localStorage as local cache
-  useEffect(() => {
-    localStorage.setItem('fintrack_accounts', JSON.stringify(accounts));
-  }, [accounts]);
-
-  // Check Express backend health check endpoint and initialize backend data
-  useEffect(() => {
-    let isMounted = true;
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 2000);
-
-    const checkBackend = async () => {
-      try {
-        await api.checkHealth(controller.signal);
-        if (isMounted) {
-          setApiStatus('online');
-          void loadAccounts();
-          void loadCategories();
-        }
-      } catch {
-        if (isMounted) {
-          setApiStatus('offline');
-        }
-      } finally {
-        clearTimeout(timeoutId);
-      }
-    };
-
-    void checkBackend();
-
-    return () => {
-      isMounted = false;
-      controller.abort();
-      clearTimeout(timeoutId);
-    };
-  }, [loadAccounts, loadCategories]);
-
-  // Compute live summary metrics.
+  // Compute live summary metrics strictly from the user's real transactions
   // Note: Transfers do not count as income or expense.
   const summary: FinancialSummary = transactions.reduce(
     (acc, tx) => {
@@ -252,7 +260,8 @@ export function App() {
 
   // totalBalance: when accounts exist, use the true net worth (sum of all
   // account balances = opening balances + income − expenses ± transfers).
-  // Fallback to income − expenses when no accounts have been created yet.
+  // When no accounts exist, compute from real transactions (income − expenses),
+  // resulting in 0 if no transactions exist.
   summary.totalBalance =
     accounts.length > 0
       ? calculateTotalNetWorth(accounts, transactions)
@@ -270,7 +279,11 @@ export function App() {
   ) => {
     if (editId) {
       setTransactions((prev) =>
-        prev.map((tx) => (tx.id === editId ? { ...txData, id: editId } : tx))
+        prev.map((tx) =>
+          tx.id === editId
+            ? { ...txData, id: editId }
+            : tx
+        )
       );
     } else {
       const newTx: Transaction = {
@@ -279,26 +292,15 @@ export function App() {
       };
       setTransactions((prev) => [newTx, ...prev]);
     }
-  };
-
-  const handleOpenAddModal = () => {
-    setEditingTransaction(null);
-    setIsAddModalOpen(true);
-  };
-
-  const handleOpenEditModal = (tx: Transaction) => {
-    setEditingTransaction(tx);
-    setIsAddModalOpen(true);
-  };
-
-  const handleCloseModal = () => {
-    setIsAddModalOpen(false);
-    setEditingTransaction(null);
+    // Refresh accounts to reflect live balance updates from backend
+    void loadAccounts();
   };
 
   // Delete transaction handler
   const handleDeleteTransaction = (id: string) => {
     setTransactions((prev) => prev.filter((tx) => tx.id !== id));
+    // Refresh accounts to reflect live balance updates from backend
+    void loadAccounts();
   };
 
   // Add / update budget handler
@@ -328,6 +330,24 @@ export function App() {
     setBudgets((prev) => prev.filter((b) => b.id !== id));
   };
 
+  // Open modal for adding a new transaction
+  const handleOpenAddModal = () => {
+    setEditingTransaction(null);
+    setIsAddModalOpen(true);
+  };
+
+  // Open modal for editing an existing transaction
+  const handleOpenEditModal = (tx: Transaction) => {
+    setEditingTransaction(tx);
+    setIsAddModalOpen(true);
+  };
+
+  // Close modal and reset editing state
+  const handleCloseModal = () => {
+    setIsAddModalOpen(false);
+    setEditingTransaction(null);
+  };
+
   // Add account handler via Backend API
   const handleAddAccount = async (data: Omit<Account, 'id' | 'createdAt'>) => {
     setAccountsError(null);
@@ -336,7 +356,8 @@ export function App() {
         name: data.name,
         type: data.type,
         openingBalance: data.openingBalance,
-        note: data.note,
+        currency: data.currency,
+        note: data.note ?? undefined,
       });
       await loadAccounts();
     } catch (err) {
@@ -347,14 +368,19 @@ export function App() {
   };
 
   // Edit account handler via Backend API
-  const handleEditAccount = async (data: Omit<Account, 'id' | 'createdAt'>, editId: string) => {
+  const handleEditAccount = async (
+    data: Omit<Account, 'id' | 'createdAt'>,
+    editId: string
+  ) => {
     setAccountsError(null);
     try {
       await api.updateAccount(editId, {
         name: data.name,
         type: data.type,
         openingBalance: data.openingBalance,
+        currency: data.currency,
         note: data.note,
+        isArchived: data.isArchived,
       });
       await loadAccounts();
     } catch (err) {
@@ -377,18 +403,70 @@ export function App() {
     }
   };
 
-  // Quick reset to initial mock data
+  // Clear local data for the current user session
   const handleResetData = () => {
-    setTransactions(INITIAL_TRANSACTIONS);
-    setBudgets(INITIAL_BUDGETS);
-    setAccounts([]);
-    setCurrency('USD');
+    setTransactions([]);
+    setBudgets([]);
+    if (currentUser?.id) {
+      localStorage.removeItem(`fintrack_transactions_${currentUser.id}`);
+      localStorage.removeItem(`fintrack_budgets_${currentUser.id}`);
+    }
     localStorage.removeItem('fintrack_transactions');
     localStorage.removeItem('fintrack_budgets');
     localStorage.removeItem('fintrack_accounts');
-    localStorage.removeItem('fintrack_currency');
+    void loadAccounts();
   };
 
+  // User logout handler
+  const handleLogout = async () => {
+    try {
+      await api.logout();
+    } catch {
+      // Proceed with clearing local state regardless
+    }
+    // Clean up legacy keys
+    localStorage.removeItem('fintrack_transactions');
+    localStorage.removeItem('fintrack_budgets');
+    localStorage.removeItem('fintrack_accounts');
+
+    // Clear in-memory financial state
+    setCurrentUser(null);
+    setAccounts([]);
+    setTransactions([]);
+    setBudgets([]);
+    setActiveNav('dashboard');
+  };
+
+  // 1. Initial Loading Screen during session check
+  if (isCheckingAuth) {
+    return (
+      <div className="auth-loading-screen">
+        <div className="auth-loading-spinner" />
+        <p>Verifying secure session...</p>
+      </div>
+    );
+  }
+
+  // 2. Unauthenticated View: Render Login / Register Screen
+  if (!currentUser) {
+    return (
+      <AuthPage
+        onAuthSuccess={(user) => {
+          setCurrentUser(user);
+          setTransactions(loadUserTransactions(user.id));
+          setBudgets(loadUserBudgets(user.id));
+          if (user.currency) {
+            setCurrency(user.currency as SupportedCurrency);
+          }
+          setApiStatus('online');
+          void loadAccounts();
+          void loadCategories();
+        }}
+      />
+    );
+  }
+
+  // 3. Authenticated View: Render Main FinTrack App Layout
   return (
     <div className="app-layout">
       {/* Sidebar Navigation */}
@@ -397,76 +475,120 @@ export function App() {
         onClose={() => setIsSidebarOpen(false)}
         activeNav={activeNav}
         setActiveNav={handleNavigate}
+        currentUser={currentUser}
+        onLogout={handleLogout}
       />
 
       {/* Main Content Area */}
       <main className="main-content">
-        {/* Top Navigation Bar */}
+        {/* Top bar with hamburger for mobile */}
         <header className="topbar">
-          <div className="topbar-left">
-            <button
-              className="hamburger-btn"
-              onClick={() => setIsSidebarOpen(true)}
-              aria-label="Open navigation menu"
+          <button
+            className="menu-toggle-btn"
+            onClick={() => setIsSidebarOpen(true)}
+            aria-label="Open sidebar menu"
+          >
+            <svg
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
             >
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <line x1="3" y1="12" x2="21" y2="12"></line>
-                <line x1="3" y1="6" x2="21" y2="6"></line>
-                <line x1="3" y1="18" x2="21" y2="18"></line>
-              </svg>
-            </button>
-            <div className="greeting-block">
-              <h1 className="greeting-title">
-                {activeNav === 'dashboard' && 'FinTrack Dashboard'}
-                {activeNav === 'accounts' && 'Accounts'}
-                {activeNav === 'transactions' && 'Transactions'}
-                {activeNav === 'budgets' && 'Budgets'}
-                {activeNav === 'analytics' && 'Analytics'}
-                {activeNav === 'settings' && 'Settings'}
-              </h1>
-              <p className="greeting-subtitle">
-                {activeNav === 'dashboard' && 'Track your wealth, monthly cash flow, and spending habits.'}
-                {activeNav === 'accounts' && 'Manage your financial accounts and real-time balances.'}
-                {activeNav === 'transactions' && 'View, search, and manage all recorded transactions.'}
-                {activeNav === 'budgets' && 'Set spending limits and monitor budget categories.'}
-                {activeNav === 'analytics' && 'Gain insights into your spending habits and financial trends.'}
-                {activeNav === 'settings' && 'Configure preferences and system options.'}
-              </p>
-            </div>
+              <line x1="3" y1="12" x2="21" y2="12"></line>
+              <line x1="3" y1="6" x2="21" y2="6"></line>
+              <line x1="3" y1="18" x2="21" y2="18"></line>
+            </svg>
+          </button>
+
+          <div className="topbar-title">
+            <h1 className="page-heading">
+              {activeNav === 'dashboard' && 'Dashboard'}
+              {activeNav === 'accounts' && 'Accounts'}
+              {activeNav === 'transactions' && 'Transactions'}
+              {activeNav === 'budgets' && 'Budgets'}
+              {activeNav === 'analytics' && 'Analytics'}
+              {activeNav === 'settings' && 'Settings'}
+            </h1>
+            <span className="page-subheading">
+              {activeNav === 'dashboard' && 'Overview of your personal financial metrics and recent cash flows.'}
+              {activeNav === 'accounts' && 'Manage your financial accounts and real-time balances.'}
+              {activeNav === 'transactions' && 'View, search, and manage all recorded transactions.'}
+              {activeNav === 'budgets' && 'Monitor category spend limits and monthly allowances.'}
+              {activeNav === 'analytics' && 'Inspect categorized expense patterns and savings velocity.'}
+              {activeNav === 'settings' && 'Preferences, storage status, and application info.'}
+            </span>
           </div>
 
-          <div className="topbar-right">
-            {/* Backend API status indicator */}
-            <div className="api-badge-wrap" title={`Backend API at ${api.getBaseUrl()}`}>
-              <span
-                className={`api-indicator-dot ${
-                  apiStatus === 'online' ? 'online' : apiStatus === 'offline' ? 'offline' : 'checking'
-                }`}
-              />
-              <span className="api-badge-text">
-                {apiStatus === 'online'
-                  ? 'API: Connected'
+          <div className="topbar-actions">
+            {/* Backend connectivity indicator pill */}
+            <div
+              className={`api-status-pill ${
+                apiStatus === 'online'
+                  ? 'status-online'
                   : apiStatus === 'offline'
-                    ? 'Backend Offline'
-                    : 'Checking API...'}
+                  ? 'status-offline'
+                  : 'status-checking'
+              }`}
+              title={
+                apiStatus === 'online'
+                  ? 'Connected to FinTrack backend API'
+                  : apiStatus === 'offline'
+                  ? 'FinTrack backend offline - using local storage'
+                  : 'Checking backend connection...'
+              }
+            >
+              <span className="status-dot"></span>
+              <span className="status-text">
+                {apiStatus === 'online' ? 'API Online' : apiStatus === 'offline' ? 'Offline' : 'Connecting'}
               </span>
             </div>
 
-            <button className="btn-primary" onClick={handleOpenAddModal}>
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <button
+              className="btn-primary topbar-add-btn"
+              onClick={handleOpenAddModal}
+              id="topbar-add-tx-btn"
+            >
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
                 <line x1="12" y1="5" x2="12" y2="19"></line>
                 <line x1="5" y1="12" x2="19" y2="12"></line>
               </svg>
               <span>Add Transaction</span>
             </button>
+
+            <button
+              className="topbar-logout-btn"
+              onClick={handleLogout}
+              id="topbar-logout-btn"
+              title="Log Out"
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+                <polyline points="16 17 21 12 16 7"></polyline>
+                <line x1="21" y1="12" x2="9" y2="12"></line>
+              </svg>
+              <span>Logout</span>
+            </button>
           </div>
         </header>
 
-        {/* Dashboard Content Container */}
-        <div className="dashboard-body">
+        {/* Dynamic Page Views */}
+        <div className="content-container">
           {activeNav === 'dashboard' && (
             <>
-              {/* Financial Summary Cards */}
+              {/* Financial Metric Cards */}
               <SummaryCards summary={summary} currency={currency} />
 
               {/* Recent Transactions List with Filters & Search */}
@@ -500,8 +622,8 @@ export function App() {
             <TransactionsPage
               transactions={transactions}
               accounts={accounts}
-              onEditTransaction={handleOpenEditModal}
               onDeleteTransaction={handleDeleteTransaction}
+              onEditTransaction={handleOpenEditModal}
               currency={currency}
             />
           )}
@@ -531,13 +653,13 @@ export function App() {
             />
           )}
 
-          {/* Footer with Reset Sample Data option */}
+          {/* Footer */}
           <footer className="dashboard-footer">
             <span className="footer-note">
               FinTrack v1.0 • Running client on Vite + React + TypeScript
             </span>
             <button className="reset-data-btn" onClick={handleResetData}>
-              Reset Sample Data
+              Clear Local Data
             </button>
           </footer>
         </div>

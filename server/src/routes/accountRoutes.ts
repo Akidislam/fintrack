@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { requireAuth } from "../middleware/authMiddleware";
 import {
   getAccounts,
   getAccountById,
@@ -8,6 +9,9 @@ import {
 } from "../controllers/accountController";
 
 const router = Router();
+
+// Protect all account endpoints with authentication
+router.use(requireAuth);
 
 router.get("/", getAccounts);
 router.get("/:id", getAccountById);

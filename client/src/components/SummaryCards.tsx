@@ -8,7 +8,6 @@ interface SummaryCardsProps {
 }
 
 export const SummaryCards: React.FC<SummaryCardsProps> = ({ summary, currency = 'USD' }) => {
-
   return (
     <div className="summary-grid">
       {/* 1. Total Balance Card (Hero fintech gradient card) */}
@@ -21,13 +20,9 @@ export const SummaryCards: React.FC<SummaryCardsProps> = ({ summary, currency = 
         <div className="balance-amount">{formatCurrency(summary.totalBalance, currency)}</div>
         <div className="card-bottom">
           <div className="trend-badge positive">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline>
-              <polyline points="17 6 23 6 23 12"></polyline>
-            </svg>
-            <span>+12.8% this month</span>
+            <span>{summary.totalBalance !== 0 ? 'Active Balance' : 'Zero Net Balance'}</span>
           </div>
-          <span className="card-subtext-light">Updated moments ago</span>
+          <span className="card-subtext-light">Real-time status</span>
         </div>
       </div>
 
@@ -44,8 +39,10 @@ export const SummaryCards: React.FC<SummaryCardsProps> = ({ summary, currency = 
         </div>
         <div className="stat-amount income-text">{formatCurrency(summary.totalIncome, currency)}</div>
         <div className="card-bottom">
-          <span className="stat-pill positive">+2 inbound sources</span>
-          <span className="card-subtext">Oct 1 - Oct 31</span>
+          <span className={`stat-pill ${summary.totalIncome > 0 ? 'positive' : 'neutral'}`}>
+            {summary.totalIncome > 0 ? 'Inbound income' : 'No income yet'}
+          </span>
+          <span className="card-subtext">This period</span>
         </div>
       </div>
 
@@ -62,8 +59,10 @@ export const SummaryCards: React.FC<SummaryCardsProps> = ({ summary, currency = 
         </div>
         <div className="stat-amount expense-text">{formatCurrency(summary.totalExpenses, currency)}</div>
         <div className="card-bottom">
-          <span className="stat-pill neutral">5 recorded expenses</span>
-          <span className="card-subtext">Under monthly budget</span>
+          <span className="stat-pill neutral">
+            {summary.totalExpenses > 0 ? 'Recorded expenses' : 'No expenses yet'}
+          </span>
+          <span className="card-subtext">{summary.totalExpenses > 0 ? 'Monthly spending' : 'Zero expenses'}</span>
         </div>
       </div>
 

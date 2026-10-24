@@ -40,6 +40,7 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
   let response: Response;
   try {
     response = await fetch(url, {
+      credentials: 'include',
       ...options,
       headers,
     });
@@ -85,6 +86,26 @@ export interface UpdateAccountInput {
   isArchived?: boolean;
 }
 
+export interface User {
+  id: string;
+  name: string;
+  email: string;
+  currency: string;
+  createdAt: string;
+}
+
+export interface RegisterInput {
+  name: string;
+  email: string;
+  password: string;
+  currency?: string;
+}
+
+export interface LoginInput {
+  email: string;
+  password: string;
+}
+
 export const api = {
   getBaseUrl(): string {
     return API_BASE_URL;
@@ -95,11 +116,47 @@ export const api = {
    */
   async checkHealth(signal?: AbortSignal): Promise<{ success: boolean; message: string }> {
     const url = `${API_BASE_URL}/health`;
-    const res = await fetch(url, { signal });
+    const res = await fetch(url, { signal, credentials: 'include' });
     if (!res.ok) {
       throw new ApiError(`Backend health check failed with status ${res.status}`, res.status);
     }
     return res.json();
+  },
+
+  /**
+   * Register a new user
+   */
+  async register(input: RegisterInput): Promise<User> {
+    return request<User>('/auth/register', {
+      method: 'POST',
+      body: JSON.stringify(input),
+    });
+  },
+
+  /**
+   * Log in with credentials and obtain HttpOnly cookie
+   */
+  async login(input: LoginInput): Promise<User> {
+    return request<User>('/auth/login', {
+      method: 'POST',
+      body: JSON.stringify(input),
+    });
+  },
+
+  /**
+   * Log out and clear HttpOnly cookie
+   */
+  async logout(): Promise<{ success: boolean; message: string }> {
+    return request<{ success: boolean; message: string }>('/auth/logout', {
+      method: 'POST',
+    });
+  },
+
+  /**
+   * Get current authenticated user profile
+   */
+  async getMe(signal?: AbortSignal): Promise<User> {
+    return request<User>('/auth/me', { signal });
   },
 
   /**
@@ -146,6 +203,7 @@ export const api = {
     try {
       res = await fetch(url, {
         method: 'DELETE',
+        credentials: 'include',
         headers: { Accept: 'application/json' },
       });
     } catch {

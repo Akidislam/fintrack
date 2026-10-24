@@ -7,8 +7,10 @@ dotenv.config();
 
 import express, { Request, Response } from "express";
 import cors, { CorsOptions } from "cors";
+import cookieParser from "cookie-parser";
 import { pool } from "./db";
 import { notFoundHandler, errorHandler } from "./middleware/errorHandler";
+import authRoutes from "./routes/authRoutes";
 import categoryRoutes from "./routes/categoryRoutes";
 import accountRoutes from "./routes/accountRoutes";
 
@@ -38,6 +40,7 @@ const corsOptions: CorsOptions = {
 // Middleware
 app.use(cors(corsOptions));
 app.use(express.json());
+app.use(cookieParser());
 
 // Health Check Endpoint
 app.get("/api/health", (_req: Request, res: Response) => {
@@ -65,6 +68,7 @@ app.get("/api/health/db", async (_req: Request, res: Response) => {
 });
 
 // Application API Routes
+app.use("/api/auth", authRoutes);
 app.use("/api/categories", categoryRoutes);
 app.use("/api/accounts", accountRoutes);
 

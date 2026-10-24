@@ -1,10 +1,13 @@
 import React from 'react';
+import type { User } from '../types';
 
 interface SidebarProps {
   isOpen: boolean;
   onClose: () => void;
   activeNav: string;
   setActiveNav: (nav: string) => void;
+  currentUser?: User | null;
+  onLogout?: () => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -12,6 +15,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onClose,
   activeNav,
   setActiveNav,
+  currentUser,
+  onLogout,
 }) => {
   const navItems = [
     {
@@ -79,6 +84,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
     },
   ];
 
+  const userInitials = currentUser?.name
+    ? currentUser.name
+        .split(' ')
+        .map((p) => p[0])
+        .slice(0, 2)
+        .join('')
+        .toUpperCase()
+    : 'FT';
+
   return (
     <>
       {/* Mobile backdrop */}
@@ -138,11 +152,26 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
         <div className="sidebar-footer">
           <div className="user-profile-card">
-            <div className="user-avatar">AJ</div>
+            <div className="user-avatar">{userInitials}</div>
             <div className="user-info">
-              <div className="user-name">Alex Johnson</div>
-              <div className="user-plan">Personal Account</div>
+              <div className="user-name">{currentUser?.name || 'User'}</div>
+              <div className="user-plan" title={currentUser?.email}>{currentUser?.email || 'Personal Account'}</div>
             </div>
+            {onLogout && (
+              <button
+                className="user-logout-btn"
+                onClick={onLogout}
+                title="Log Out"
+                aria-label="Log Out"
+                id="sidebar-logout-btn"
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+                  <polyline points="16 17 21 12 16 7"></polyline>
+                  <line x1="21" y1="12" x2="9" y2="12"></line>
+                </svg>
+              </button>
+            )}
           </div>
         </div>
       </aside>
