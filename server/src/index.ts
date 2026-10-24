@@ -1,9 +1,14 @@
+import path from "path";
+import dotenv from "dotenv";
+
+// Ensure server/.env is loaded reliably whether started from project root or server/
+dotenv.config({ path: path.resolve(__dirname, "../.env") });
+dotenv.config();
+
 import express, { Request, Response } from "express";
 import cors, { CorsOptions } from "cors";
-import dotenv from "dotenv";
+import { pool } from "./db";
 import { notFoundHandler, errorHandler } from "./middleware/errorHandler";
-
-dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -38,6 +43,23 @@ app.get("/api/health", (_req: Request, res: Response) => {
     success: true,
     message: "FinTrack API is running!",
   });
+});
+
+// Database Health Check Endpoint
+app.get("/api/health/db", async (_req: Request, res: Response) => {
+  try {
+    await pool.query("SELECT 1");
+    res.status(200).json({
+      success: true,
+      message: "Database connection is healthy!",
+    });
+  } catch (error) {
+    console.error("Database health check failed:", (error as Error).message);
+    res.status(500).json({
+      success: false,
+      message: "Database connection failed",
+    });
+  }
 });
 
 // Fallback 404 handler for unknown routes
