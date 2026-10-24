@@ -9,6 +9,8 @@ import express, { Request, Response } from "express";
 import cors, { CorsOptions } from "cors";
 import { pool } from "./db";
 import { notFoundHandler, errorHandler } from "./middleware/errorHandler";
+import categoryRoutes from "./routes/categoryRoutes";
+import accountRoutes from "./routes/accountRoutes";
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -61,6 +63,10 @@ app.get("/api/health/db", async (_req: Request, res: Response) => {
     });
   }
 });
+
+// Application API Routes
+app.use("/api/categories", categoryRoutes);
+app.use("/api/accounts", accountRoutes);
 
 // Fallback 404 handler for unknown routes
 app.use(notFoundHandler);

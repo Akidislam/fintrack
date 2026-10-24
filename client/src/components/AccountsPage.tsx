@@ -7,10 +7,14 @@ import { AccountModal } from './AccountModal';
 interface AccountsPageProps {
   accounts: Account[];
   transactions: Transaction[];
-  onAddAccount: (data: Omit<Account, 'id' | 'createdAt'>) => void;
-  onEditAccount: (data: Omit<Account, 'id' | 'createdAt'>, editId: string) => void;
-  onDeleteAccount: (id: string) => void;
+  onAddAccount: (data: Omit<Account, 'id' | 'createdAt'>) => Promise<boolean | void> | void;
+  onEditAccount: (data: Omit<Account, 'id' | 'createdAt'>, editId: string) => Promise<boolean | void> | void;
+  onDeleteAccount: (id: string) => Promise<boolean | void> | void;
   currency?: SupportedCurrency;
+  isLoading?: boolean;
+  error?: string | null;
+  onClearError?: () => void;
+  onRetry?: () => void;
 }
 
 const ACCOUNT_TYPE_ICONS: Record<AccountType, string> = {
@@ -34,10 +38,16 @@ export const AccountsPage: React.FC<AccountsPageProps> = ({
   onEditAccount,
   onDeleteAccount,
   currency = 'USD',
+  isLoading = false,
+  error = null,
+  onClearError,
+  onRetry,
 }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingAccount, setEditingAccount] = useState<Account | null>(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   // Derived: Current real-time balance = opening balance + linked income - linked expense ± transfers
   const getDisplayBalance = (account: Account): number => {
@@ -65,27 +75,39 @@ export const AccountsPage: React.FC<AccountsPageProps> = ({
     setIsModalOpen(true);
   };
 
-  const handleModalSave = (data: Omit<Account, 'id' | 'createdAt'>, editId?: string) => {
+  const handleModalSave = async (data: Omit<Account, 'id' | 'createdAt'>, editId?: string) => {
     if (editId) {
-      onEditAccount(data, editId);
+      await onEditAccount(data, editId);
     } else {
-      onAddAccount(data);
+      await onAddAccount(data);
     }
   };
 
   const handleDeleteRequest = (id: string) => {
     setDeleteConfirmId(id);
+    setDeleteError(null);
   };
 
-  const handleDeleteConfirm = () => {
+  const handleDeleteConfirm = async () => {
     if (deleteConfirmId) {
-      onDeleteAccount(deleteConfirmId);
-      setDeleteConfirmId(null);
+      try {
+        setIsDeleting(true);
+        setDeleteError(null);
+        await onDeleteAccount(deleteConfirmId);
+        setDeleteConfirmId(null);
+      } catch (err) {
+        setDeleteError(err instanceof Error ? err.message : 'Failed to delete account');
+      } finally {
+        setIsDeleting(false);
+      }
     }
   };
 
   const handleDeleteCancel = () => {
-    setDeleteConfirmId(null);
+    if (!isDeleting) {
+      setDeleteConfirmId(null);
+      setDeleteError(null);
+    }
   };
 
   const accountToDelete = accounts.find((a) => a.id === deleteConfirmId);
@@ -119,8 +141,23 @@ export const AccountsPage: React.FC<AccountsPageProps> = ({
               : `${accounts.length} account${accounts.length !== 1 ? 's' : ''} · Real-time balances`}
           </span>
         </div>
-        <button className="btn-primary" onClick={handleOpenAdd} id="add-account-btn">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+
+        <button
+          className="btn-primary"
+          onClick={handleOpenAdd}
+          id="add-account-btn"
+          aria-label="Add New Account"
+        >
+          <svg
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
             <line x1="12" y1="5" x2="12" y2="19"></line>
             <line x1="5" y1="12" x2="19" y2="12"></line>
           </svg>
@@ -128,23 +165,71 @@ export const AccountsPage: React.FC<AccountsPageProps> = ({
         </button>
       </div>
 
-      {accounts.length === 0 ? (
-        /* ── Empty state ── */
+      {/* Global Error Banner */}
+      {error && (
+        <div
+          className="modal-error-alert"
+          style={{
+            margin: '0 0 16px 0',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+          }}
+          role="alert"
+        >
+          <span>⚠️ {error}</span>
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+            {onRetry && (
+              <button
+                className="btn-secondary"
+                style={{ padding: '2px 8px', fontSize: '0.75rem' }}
+                onClick={onRetry}
+              >
+                Retry
+              </button>
+            )}
+            {onClearError && (
+              <button
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  cursor: 'pointer',
+                  fontSize: '1rem',
+                  color: 'inherit',
+                }}
+                onClick={onClearError}
+                aria-label="Dismiss error"
+              >
+                ✕
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Loading indicator for initial state */}
+      {isLoading && accounts.length === 0 && (
+        <div style={{ textAlign: 'center', padding: '32px 0', color: 'var(--text-subtle)' }}>
+          <p>Loading accounts from server...</p>
+        </div>
+      )}
+
+      {/* Empty state */}
+      {!isLoading && accounts.length === 0 ? (
         <div className="empty-state">
-          <div className="empty-icon">🏦</div>
-          <h3 className="empty-title">No accounts yet</h3>
-          <p className="empty-desc">
-            Add a Cash account, Bank Account, Mobile Wallet, or Credit Card to start organising your finances.
-            Balances are calculated live from opening balances and transactions.
+          <div className="empty-state-icon">🏦</div>
+          <h3 className="empty-state-title">No Accounts Yet</h3>
+          <p className="empty-state-text">
+            Create your first account (Cash, Bank, Mobile Wallet, or Credit Card) to start tracking balances accurately.
           </p>
-          <button className="empty-action-btn" onClick={handleOpenAdd} id="add-first-account-btn">
-            + Add Your First Account
+          <button className="btn-primary" onClick={handleOpenAdd} id="empty-add-account-btn">
+            Create Your First Account
           </button>
         </div>
       ) : (
         <>
-          {/* ── Portfolio summary strip ── */}
-          <div className="acct-summary-strip">
+          {/* ── Summary bar ── */}
+          <div className="acct-summary-bar">
             <div className="acct-summary-item">
               <span className="acct-summary-label">Total Assets</span>
               <span className="acct-summary-val income-text">{formatCurrency(totalAssets, currency)}</span>
@@ -273,31 +358,37 @@ export const AccountsPage: React.FC<AccountsPageProps> = ({
                 <h2 className="modal-title">Delete Account</h2>
                 <p className="modal-subtitle">This action cannot be undone</p>
               </div>
-              <button className="modal-close-btn" onClick={handleDeleteCancel} aria-label="Cancel deletion">
+              <button className="modal-close-btn" onClick={handleDeleteCancel} aria-label="Cancel deletion" disabled={isDeleting}>
                 ✕
               </button>
             </div>
+
+            {deleteError && (
+              <div className="modal-error-alert" role="alert">
+                ⚠️ {deleteError}
+              </div>
+            )}
+
             <div className="acct-confirm-body">
               <div className="acct-confirm-icon">🗑️</div>
               <div className="acct-confirm-text">
                 <p>
                   Are you sure you want to delete <strong>"{accountToDelete.name}"</strong>?
-                  The account record will be permanently removed from local storage.
                 </p>
                 {linkedTxCount > 0 && (
                   <p className="acct-confirm-warning">
                     ⚠️ This account has <strong>{linkedTxCount}</strong> linked transaction{linkedTxCount !== 1 ? 's' : ''}.
-                    Those transactions will be preserved in your history, but will be safely labeled as associated with a deleted account.
+                    The backend protects your data and will reject deleting accounts with linked financial history.
                   </p>
                 )}
               </div>
             </div>
             <div className="modal-actions" style={{ padding: '0 24px 24px' }}>
-              <button className="btn-secondary" onClick={handleDeleteCancel} id="cancel-delete-account-btn">
+              <button className="btn-secondary" onClick={handleDeleteCancel} id="cancel-delete-account-btn" disabled={isDeleting}>
                 Cancel
               </button>
-              <button className="btn-danger" onClick={handleDeleteConfirm} id="confirm-delete-account-btn">
-                Delete Account
+              <button className="btn-danger" onClick={handleDeleteConfirm} id="confirm-delete-account-btn" disabled={isDeleting}>
+                {isDeleting ? 'Deleting...' : 'Delete Account'}
               </button>
             </div>
           </div>

@@ -54,4 +54,21 @@ export interface Account {
   /** ISO date string (YYYY-MM-DD) when the account was added */
   createdAt: string;
   note?: string;
+  currency?: string;
+  isArchived?: boolean;
+  updatedAt?: string;
+  currentBalance?: number;
+  transactionCount?: number;
+}
+
+export interface Category {
+  id: string;
+  userId?: string | null;
+  name: string;
+  type: TransactionType;
+  icon?: string | null;
+  color?: string | null;
+  isSystem: boolean;
+  createdAt: string;
+  updatedAt: string;
 }

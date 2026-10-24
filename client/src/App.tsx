@@ -1,6 +1,15 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import './App.css';
-import type { Transaction, FinancialSummary, CategoryBudget, TransactionCategory, SupportedCurrency, Account } from './types';
+import type {
+  Transaction,
+  FinancialSummary,
+  CategoryBudget,
+  TransactionCategory,
+  SupportedCurrency,
+  Account,
+  Category,
+} from './types';
+import { api } from './services/api';
 import { INITIAL_TRANSACTIONS, INITIAL_BUDGETS } from './data/mockData';
 import { Sidebar } from './components/Sidebar';
 import { SummaryCards } from './components/SummaryCards';
@@ -65,12 +74,49 @@ export function App() {
       return [];
     }
   });
+  const [accountsLoading, setAccountsLoading] = useState(false);
+  const [accountsError, setAccountsError] = useState<string | null>(null);
+
+  const [, setCategories] = useState<Category[]>([]);
+  const [, setCategoriesLoading] = useState(false);
+  const [, setCategoriesError] = useState<string | null>(null);
 
   const [activeNav, setActiveNav] = useState<NavPage>(() => getNavFromLocation());
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
   const [apiStatus, setApiStatus] = useState<'checking' | 'online' | 'offline'>('checking');
+
+  // Fetch latest accounts from backend API
+  const loadAccounts = useCallback(async () => {
+    setAccountsLoading(true);
+    setAccountsError(null);
+    try {
+      const data = await api.getAccounts();
+      setAccounts(data);
+      localStorage.setItem('fintrack_accounts', JSON.stringify(data));
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to load accounts from server';
+      setAccountsError(message);
+    } finally {
+      setAccountsLoading(false);
+    }
+  }, []);
+
+  // Fetch categories from backend API
+  const loadCategories = useCallback(async () => {
+    setCategoriesLoading(true);
+    setCategoriesError(null);
+    try {
+      const data = await api.getCategories();
+      setCategories(data);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to load categories from server';
+      setCategoriesError(message);
+    } finally {
+      setCategoriesLoading(false);
+    }
+  }, []);
 
   // Handle user navigation (updates state, browser history URL, and localStorage)
   const handleNavigate = (nav: string) => {
@@ -148,12 +194,12 @@ export function App() {
     localStorage.setItem('fintrack_currency', currency);
   }, [currency]);
 
-  // Sync accounts to localStorage
+  // Sync accounts to localStorage as local cache
   useEffect(() => {
     localStorage.setItem('fintrack_accounts', JSON.stringify(accounts));
   }, [accounts]);
 
-  // Check Express backend health check endpoint
+  // Check Express backend health check endpoint and initialize backend data
   useEffect(() => {
     let isMounted = true;
     const controller = new AbortController();
@@ -161,11 +207,11 @@ export function App() {
 
     const checkBackend = async () => {
       try {
-        const res = await fetch('http://localhost:5000/api/health', {
-          signal: controller.signal,
-        });
+        await api.checkHealth(controller.signal);
         if (isMounted) {
-          setApiStatus(res.ok ? 'online' : 'offline');
+          setApiStatus('online');
+          void loadAccounts();
+          void loadCategories();
         }
       } catch {
         if (isMounted) {
@@ -183,7 +229,7 @@ export function App() {
       controller.abort();
       clearTimeout(timeoutId);
     };
-  }, []);
+  }, [loadAccounts, loadCategories]);
 
   // Compute live summary metrics.
   // Note: Transfers do not count as income or expense.
@@ -282,28 +328,53 @@ export function App() {
     setBudgets((prev) => prev.filter((b) => b.id !== id));
   };
 
-  // Add account handler
-  const handleAddAccount = (data: Omit<Account, 'id' | 'createdAt'>) => {
-    const newAccount: Account = {
-      ...data,
-      id: `acct-${Date.now()}`,
-      createdAt: new Date().toISOString().split('T')[0],
-    };
-    setAccounts((prev) => [newAccount, ...prev]);
+  // Add account handler via Backend API
+  const handleAddAccount = async (data: Omit<Account, 'id' | 'createdAt'>) => {
+    setAccountsError(null);
+    try {
+      await api.createAccount({
+        name: data.name,
+        type: data.type,
+        openingBalance: data.openingBalance,
+        note: data.note,
+      });
+      await loadAccounts();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to create account';
+      setAccountsError(message);
+      throw err;
+    }
   };
 
-  // Edit account handler
-  const handleEditAccount = (data: Omit<Account, 'id' | 'createdAt'>, editId: string) => {
-    setAccounts((prev) =>
-      prev.map((a) =>
-        a.id === editId ? { ...a, ...data } : a
-      )
-    );
+  // Edit account handler via Backend API
+  const handleEditAccount = async (data: Omit<Account, 'id' | 'createdAt'>, editId: string) => {
+    setAccountsError(null);
+    try {
+      await api.updateAccount(editId, {
+        name: data.name,
+        type: data.type,
+        openingBalance: data.openingBalance,
+        note: data.note,
+      });
+      await loadAccounts();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to update account';
+      setAccountsError(message);
+      throw err;
+    }
   };
 
-  // Delete account handler
-  const handleDeleteAccount = (id: string) => {
-    setAccounts((prev) => prev.filter((a) => a.id !== id));
+  // Delete account handler via Backend API
+  const handleDeleteAccount = async (id: string) => {
+    setAccountsError(null);
+    try {
+      await api.deleteAccount(id);
+      await loadAccounts();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to delete account';
+      setAccountsError(message);
+      throw err;
+    }
   };
 
   // Quick reset to initial mock data
@@ -366,16 +437,17 @@ export function App() {
 
           <div className="topbar-right">
             {/* Backend API status indicator */}
-            <div className="api-badge-wrap" title="Express backend on port 5000">
+            <div className="api-badge-wrap" title={`Backend API at ${api.getBaseUrl()}`}>
               <span
-                className={`api-indicator-dot ${apiStatus === 'online' ? 'online' : apiStatus === 'offline' ? 'offline' : 'checking'
-                  }`}
+                className={`api-indicator-dot ${
+                  apiStatus === 'online' ? 'online' : apiStatus === 'offline' ? 'offline' : 'checking'
+                }`}
               />
               <span className="api-badge-text">
                 {apiStatus === 'online'
                   ? 'API: Connected'
                   : apiStatus === 'offline'
-                    ? 'Local Mode'
+                    ? 'Backend Offline'
                     : 'Checking API...'}
               </span>
             </div>
@@ -417,6 +489,10 @@ export function App() {
               onEditAccount={handleEditAccount}
               onDeleteAccount={handleDeleteAccount}
               currency={currency}
+              isLoading={accountsLoading}
+              error={accountsError}
+              onClearError={() => setAccountsError(null)}
+              onRetry={loadAccounts}
             />
           )}
 

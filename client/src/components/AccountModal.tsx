@@ -5,7 +5,7 @@ import { CURRENCY_SYMBOLS } from '../utils/formatters';
 interface AccountModalProps {
     isOpen: boolean;
     onClose: () => void;
-    onSave: (data: Omit<Account, 'id' | 'createdAt'>, editId?: string) => void;
+    onSave: (data: Omit<Account, 'id' | 'createdAt'>, editId?: string) => Promise<void> | void;
     existingAccount?: Account | null;
     currency?: SupportedCurrency;
 }
@@ -38,6 +38,7 @@ export const AccountModal: React.FC<AccountModalProps> = ({
     const [openingBalance, setOpeningBalance] = useState('');
     const [note, setNote] = useState('');
     const [error, setError] = useState('');
+    const [isSaving, setIsSaving] = useState(false);
 
     // Populate fields when editing an existing account
     useEffect(() => {
@@ -53,20 +54,21 @@ export const AccountModal: React.FC<AccountModalProps> = ({
             setNote(EMPTY_FORM.note);
         }
         setError('');
+        setIsSaving(false);
     }, [existingAccount, isOpen]);
 
     // ESC to close
     useEffect(() => {
         const handleKey = (e: KeyboardEvent) => {
-            if (e.key === 'Escape' && isOpen) onClose();
+            if (e.key === 'Escape' && isOpen && !isSaving) onClose();
         };
         window.addEventListener('keydown', handleKey);
         return () => window.removeEventListener('keydown', handleKey);
-    }, [isOpen, onClose]);
+    }, [isOpen, isSaving, onClose]);
 
     if (!isOpen) return null;
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setError('');
 
@@ -86,17 +88,24 @@ export const AccountModal: React.FC<AccountModalProps> = ({
             return;
         }
 
-        onSave(
-            { name: trimmedName, type, openingBalance: parsedBalance, note: note.trim() || undefined },
-            existingAccount?.id
-        );
-        onClose();
+        try {
+            setIsSaving(true);
+            await onSave(
+                { name: trimmedName, type, openingBalance: parsedBalance, note: note.trim() || undefined },
+                existingAccount?.id
+            );
+            onClose();
+        } catch (err) {
+            setError(err instanceof Error ? err.message : 'Failed to save account');
+        } finally {
+            setIsSaving(false);
+        }
     };
 
     const currencySymbol = CURRENCY_SYMBOLS[currency];
 
     return (
-        <div className="modal-overlay" onClick={onClose}>
+        <div className="modal-overlay" onClick={isSaving ? undefined : onClose}>
             <div className="modal-container" onClick={(e) => e.stopPropagation()}>
                 {/* Header */}
                 <div className="modal-header">
@@ -110,98 +119,131 @@ export const AccountModal: React.FC<AccountModalProps> = ({
                                 : 'Create a new account to track your funds'}
                         </p>
                     </div>
-                    <button className="modal-close-btn" onClick={onClose} aria-label="Close modal">
+                    <button
+                        className="modal-close-btn"
+                        onClick={onClose}
+                        aria-label="Close modal"
+                        id="close-account-modal-btn"
+                        disabled={isSaving}
+                    >
                         ✕
                     </button>
                 </div>
 
-                {error && <div className="modal-error-alert">{error}</div>}
-
-                <form onSubmit={handleSubmit} className="modal-form">
-                    {/* Account type selector */}
-                    <div className="form-group">
-                        <label className="form-label">Account Type</label>
-                        <div className="acct-type-grid">
-                            {ACCOUNT_TYPES.map((t) => (
-                                <button
-                                    key={t}
-                                    type="button"
-                                    className={`acct-type-btn${type === t ? ' selected' : ''}`}
-                                    onClick={() => setType(t)}
-                                    aria-pressed={type === t}
-                                >
-                                    <span className="acct-type-icon">{ACCOUNT_TYPE_ICONS[t]}</span>
-                                    <span className="acct-type-label">{t}</span>
-                                </button>
-                            ))}
-                        </div>
+                {/* Error Banner */}
+                {error && (
+                    <div className="modal-error-alert" role="alert">
+                        ⚠️ {error}
                     </div>
+                )}
 
-                    {/* Account name */}
+                {/* Form */}
+                <form onSubmit={handleSubmit} className="modal-form" noValidate>
+                    {/* Account Name */}
                     <div className="form-group">
-                        <label className="form-label" htmlFor="account-name">
-                            Account Name
+                        <label className="form-label" htmlFor="account-name-input">
+                            Account Name <span className="required-star">*</span>
                         </label>
                         <input
-                            id="account-name"
+                            id="account-name-input"
                             type="text"
                             className="form-input"
-                            placeholder={`e.g. ${type === 'Bank Account' ? 'BRAC Bank Savings' : type === 'Credit Card' ? 'Visa Platinum' : type === 'Mobile Wallet' ? 'bKash Wallet' : 'Petty Cash'}`}
+                            placeholder="e.g. Chase Total Checking, Cash Wallet, Amex Gold"
                             value={name}
-                            onChange={(e) => setName(e.target.value)}
+                            onChange={(e) => {
+                                setName(e.target.value);
+                                if (error) setError('');
+                            }}
                             maxLength={50}
                             autoFocus
-                            required
+                            disabled={isSaving}
                         />
                     </div>
 
-                    {/* Opening balance */}
+                    {/* Account Type */}
                     <div className="form-group">
-                        <label className="form-label" htmlFor="account-balance">
-                            Opening Balance ({currencySymbol})
+                        <label className="form-label" htmlFor="account-type-select">
+                            Account Type <span className="required-star">*</span>
                         </label>
-                        <div className="input-prefix-wrapper">
-                            <span className="input-prefix">{currencySymbol}</span>
-                            <input
-                                id="account-balance"
-                                type="number"
-                                step="0.01"
-                                placeholder="0.00"
-                                className="form-input with-prefix"
-                                value={openingBalance}
-                                onChange={(e) => setOpeningBalance(e.target.value)}
-                                required
-                            />
+                        <div className="custom-select-wrap">
+                            <select
+                                id="account-type-select"
+                                className="form-input"
+                                value={type}
+                                onChange={(e) => setType(e.target.value as AccountType)}
+                                disabled={isSaving}
+                            >
+                                {ACCOUNT_TYPES.map((t) => (
+                                    <option key={t} value={t}>
+                                        {ACCOUNT_TYPE_ICONS[t]} {t}
+                                    </option>
+                                ))}
+                            </select>
                         </div>
-                        {type === 'Credit Card' && (
-                            <span className="form-hint">
-                                For credit cards, enter current debt as a negative number (e.g. -5000) or 0 if newly opened.
-                            </span>
-                        )}
                     </div>
 
-                    {/* Optional note */}
+                    {/* Opening Balance */}
                     <div className="form-group">
-                        <label className="form-label" htmlFor="account-note">
-                            Note <span className="form-label-optional">(optional)</span>
+                        <label className="form-label" htmlFor="account-opening-balance-input">
+                            Opening Balance ({currencySymbol}) <span className="required-star">*</span>
                         </label>
                         <input
-                            id="account-note"
+                            id="account-opening-balance-input"
+                            type="number"
+                            step="0.01"
+                            className="form-input"
+                            placeholder="0.00"
+                            value={openingBalance}
+                            onChange={(e) => {
+                                setOpeningBalance(e.target.value);
+                                if (error) setError('');
+                            }}
+                            disabled={isSaving}
+                        />
+                        <span className="form-help-text">
+                            Starting amount. Use a negative value for Credit Card debt.
+                        </span>
+                    </div>
+
+                    {/* Note / Description */}
+                    <div className="form-group">
+                        <label className="form-label" htmlFor="account-note-input">
+                            Note <span className="optional-tag">(optional)</span>
+                        </label>
+                        <input
+                            id="account-note-input"
                             type="text"
                             className="form-input"
-                            placeholder="e.g. Primary business account"
+                            placeholder="e.g. Emergency fund, Primary daily card"
                             value={note}
                             onChange={(e) => setNote(e.target.value)}
                             maxLength={100}
+                            disabled={isSaving}
                         />
                     </div>
 
+                    {/* Action buttons */}
                     <div className="modal-actions">
-                        <button type="button" className="btn-secondary" onClick={onClose}>
+                        <button
+                            type="button"
+                            className="btn-secondary"
+                            onClick={onClose}
+                            id="cancel-account-btn"
+                            disabled={isSaving}
+                        >
                             Cancel
                         </button>
-                        <button type="submit" className="btn-primary">
-                            {existingAccount ? 'Save Changes' : 'Add Account'}
+                        <button
+                            type="submit"
+                            className="btn-primary"
+                            id="save-account-btn"
+                            disabled={isSaving}
+                        >
+                            {isSaving
+                                ? 'Saving...'
+                                : existingAccount
+                                  ? 'Save Changes'
+                                  : 'Create Account'}
                         </button>
                     </div>
                 </form>
