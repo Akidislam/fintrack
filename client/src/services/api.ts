@@ -14,8 +14,17 @@ export class ApiError extends Error {
  * Resolves the backend API base URL from Vite environment variable
  * with fallback to the local development server at http://localhost:5000/api
  */
+function cleanBaseUrl(url?: string): string {
+  if (!url) return '';
+  let trimmed = url.trim();
+  while (trimmed.endsWith('/')) {
+    trimmed = trimmed.slice(0, -1);
+  }
+  return trimmed;
+}
+
 export const API_BASE_URL: string =
-  (import.meta.env.VITE_API_URL as string | undefined)?.replace(/\/+$/, '') ||
+  cleanBaseUrl(import.meta.env.VITE_API_URL as string | undefined) ||
   'http://localhost:5000/api';
 
 interface ApiResponse<T> {

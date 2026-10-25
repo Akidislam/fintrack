@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import type { CategoryBudget, TransactionCategory, SupportedCurrency } from '../types';
 import { CURRENCY_SYMBOLS } from '../utils/formatters';
 import { EXPENSE_CATEGORIES } from '../utils/transactionFilters';
@@ -50,6 +50,8 @@ export const BudgetModal: React.FC<BudgetModalProps> = ({
     }
   }, [existingBudget, configuredCategories, isOpen]);
 
+  const modalRef = useRef<HTMLDivElement>(null);
+
   // Handle ESC key to close modal
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -59,6 +61,17 @@ export const BudgetModal: React.FC<BudgetModalProps> = ({
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
+
+  // Click outside to close
+  useEffect(() => {
+    const handleMouseDown = (e: MouseEvent) => {
+      if (isOpen && modalRef.current && !modalRef.current.contains(e.target as Node)) {
+        onClose();
+      }
+    };
+    document.addEventListener('mousedown', handleMouseDown);
+    return () => document.removeEventListener('mousedown', handleMouseDown);
   }, [isOpen, onClose]);
 
   if (!isOpen) return null;
@@ -77,7 +90,7 @@ export const BudgetModal: React.FC<BudgetModalProps> = ({
       return;
     }
 
-    const parsedLimit = parseFloat(monthlyLimit);
+    const parsedLimit = Number.parseFloat(monthlyLimit);
     if (!Number.isFinite(parsedLimit) || parsedLimit <= 0) {
       setError('Please enter a valid positive monthly budget amount.');
       return;
@@ -92,8 +105,8 @@ export const BudgetModal: React.FC<BudgetModalProps> = ({
   // instead of a confusing disabled form.
   if (allCategoriesConfigured) {
     return (
-      <div className="modal-overlay" onClick={onClose}>
-        <div className="modal-container" onClick={(e) => e.stopPropagation()}>
+      <div className="modal-overlay">
+        <div ref={modalRef} className="modal-container" role="dialog" aria-modal="true">
           <div className="modal-header">
             <div>
               <h2 className="modal-title">All Categories Budgeted</h2>
@@ -127,7 +140,7 @@ export const BudgetModal: React.FC<BudgetModalProps> = ({
           </div>
 
           <div className="modal-actions">
-            <button type="button" className="btn-primary" onClick={onClose} autoFocus>
+            <button type="button" className="btn-primary" onClick={onClose}>
               Got It
             </button>
           </div>
@@ -137,8 +150,8 @@ export const BudgetModal: React.FC<BudgetModalProps> = ({
   }
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-container" onClick={(e) => e.stopPropagation()}>
+    <div className="modal-overlay">
+      <div ref={modalRef} className="modal-container" role="dialog" aria-modal="true">
         <div className="modal-header">
           <div>
             <h2 className="modal-title">
@@ -199,7 +212,7 @@ export const BudgetModal: React.FC<BudgetModalProps> = ({
                 value={monthlyLimit}
                 onChange={(e) => setMonthlyLimit(e.target.value)}
                 className="form-input"
-                autoFocus
+
                 required
               />
             </div>

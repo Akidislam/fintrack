@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import type {
   Transaction,
   TransactionType,
@@ -79,6 +79,8 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
     setError('');
   }, [existingTransaction, isOpen, accounts]);
 
+  const modalRef = useRef<HTMLDivElement>(null);
+
   // Handle ESC key to close modal
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -90,18 +92,29 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, onClose]);
 
+  // Click outside to close
+  useEffect(() => {
+    const handleMouseDown = (e: MouseEvent) => {
+      if (isOpen && modalRef.current && !modalRef.current.contains(e.target as Node)) {
+        onClose();
+      }
+    };
+    document.addEventListener('mousedown', handleMouseDown);
+    return () => document.removeEventListener('mousedown', handleMouseDown);
+  }, [isOpen, onClose]);
+
   if (!isOpen) return null;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
 
-    const parsedAmount = parseFloat(amount);
+    const parsedAmount = Number.parseFloat(amount);
     if (!title.trim()) {
       setError('Please provide a description or merchant name.');
       return;
     }
-    if (isNaN(parsedAmount) || parsedAmount <= 0) {
+    if (Number.isNaN(parsedAmount) || parsedAmount <= 0) {
       setError('Please enter a valid amount greater than 0.');
       return;
     }
@@ -144,10 +157,10 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
     Boolean(toAccountId) && !accounts.some((a) => a.id === toAccountId);
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
+    <div className="modal-overlay">
       <div
+        ref={modalRef}
         className="modal-container"
-        onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-modal="true"
         aria-labelledby="modal-title"
@@ -173,8 +186,8 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
         <form onSubmit={handleSubmit} className="modal-form">
           {/* Type Toggle: Expense vs Income vs Transfer */}
           <div className="form-group">
-            <label className="form-label">Transaction Type</label>
-            <div className="type-toggle-group">
+            <span id="tx-type-label" className="form-label">Transaction Type</span>
+            <div className="type-toggle-group" role="group" aria-labelledby="tx-type-label">
               <button
                 type="button"
                 className={`type-toggle-btn expense ${type === 'expense' ? 'selected' : ''}`}

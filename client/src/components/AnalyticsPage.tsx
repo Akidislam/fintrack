@@ -113,10 +113,10 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = ({
   });
 
   const monthlyHistory: MonthlyData[] = Object.keys(monthlyMap)
-    .sort()
+    .sort((a, b) => a.localeCompare(b))
     .map((key) => {
       const [year, month] = key.split('-');
-      const dateObj = new Date(parseInt(year, 10), parseInt(month, 10) - 1, 1);
+      const dateObj = new Date(Number.parseInt(year, 10), Number.parseInt(month, 10) - 1, 1);
       const label = new Intl.DateTimeFormat('en-US', {
         month: 'short',
         year: 'numeric',
@@ -151,7 +151,7 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = ({
           <div className="card-top">
             <div className="stat-label">CURRENT MONTH INFLOW</div>
             <div className="stat-icon-wrapper income">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                 <line x1="12" y1="19" x2="12" y2="5"></line>
                 <polyline points="5 12 12 5 19 12"></polyline>
               </svg>
@@ -171,7 +171,7 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = ({
           <div className="card-top">
             <div className="stat-label">CURRENT MONTH OUTFLOW</div>
             <div className="stat-icon-wrapper expense">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                 <line x1="12" y1="5" x2="12" y2="19"></line>
                 <polyline points="19 12 12 19 5 12"></polyline>
               </svg>
@@ -192,12 +192,12 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = ({
             <div className="stat-label">NET CASH FLOW</div>
             <div className={`stat-icon-wrapper ${isPositiveNet ? 'income' : 'expense'}`}>
               {isPositiveNet ? (
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                   <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline>
                   <polyline points="17 6 23 6 23 12"></polyline>
                 </svg>
               ) : (
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                   <polyline points="23 18 13.5 8.5 8.5 13.5 1 6"></polyline>
                   <polyline points="17 18 23 18 23 12"></polyline>
                 </svg>

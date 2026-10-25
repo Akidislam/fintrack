@@ -13,7 +13,7 @@ const SUPPORTED_CURRENCIES: { code: SupportedCurrency; label: string }[] = [
   { code: 'GBP', label: 'GBP (£) - British Pound' },
 ];
 
-const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const EMAIL_REGEX = /^[^\s@]+@[^\s@.]+(?:\.[^\s@.]+)+$/;
 
 export const AuthPage: React.FC<AuthPageProps> = ({ onAuthSuccess }) => {
   const [mode, setMode] = useState<'login' | 'register'>('login');
@@ -98,6 +98,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onAuthSuccess }) => {
           <div className="auth-brand">
             <div className="brand-icon">
               <svg
+                aria-hidden="true"
                 width="22"
                 height="22"
                 viewBox="0 0 24 24"
@@ -149,7 +150,6 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onAuthSuccess }) => {
                   if (error) setError(null);
                 }}
                 disabled={isSubmitting}
-                autoFocus={!isLogin}
                 maxLength={100}
                 required
               />
@@ -171,7 +171,6 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onAuthSuccess }) => {
                 if (error) setError(null);
               }}
               disabled={isSubmitting}
-              autoFocus={isLogin}
               autoComplete="email"
               required
             />

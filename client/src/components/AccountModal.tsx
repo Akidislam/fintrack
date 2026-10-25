@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import type { Account, AccountType, SupportedCurrency } from '../types';
 import { CURRENCY_SYMBOLS } from '../utils/formatters';
 
@@ -57,6 +57,8 @@ export const AccountModal: React.FC<AccountModalProps> = ({
         setIsSaving(false);
     }, [existingAccount, isOpen]);
 
+    const modalRef = useRef<HTMLDivElement>(null);
+
     // ESC to close
     useEffect(() => {
         const handleKey = (e: KeyboardEvent) => {
@@ -64,6 +66,17 @@ export const AccountModal: React.FC<AccountModalProps> = ({
         };
         window.addEventListener('keydown', handleKey);
         return () => window.removeEventListener('keydown', handleKey);
+    }, [isOpen, isSaving, onClose]);
+
+    // Click outside to close
+    useEffect(() => {
+        const handleMouseDown = (e: MouseEvent) => {
+            if (!isSaving && isOpen && modalRef.current && !modalRef.current.contains(e.target as Node)) {
+                onClose();
+            }
+        };
+        document.addEventListener('mousedown', handleMouseDown);
+        return () => document.removeEventListener('mousedown', handleMouseDown);
     }, [isOpen, isSaving, onClose]);
 
     if (!isOpen) return null;
@@ -82,8 +95,8 @@ export const AccountModal: React.FC<AccountModalProps> = ({
             return;
         }
 
-        const parsedBalance = parseFloat(openingBalance);
-        if (openingBalance.trim() === '' || isNaN(parsedBalance)) {
+        const parsedBalance = Number.parseFloat(openingBalance);
+        if (openingBalance.trim() === '' || Number.isNaN(parsedBalance)) {
             setError('Please enter a valid opening balance (use 0 for zero balance).');
             return;
         }
@@ -105,8 +118,8 @@ export const AccountModal: React.FC<AccountModalProps> = ({
     const currencySymbol = CURRENCY_SYMBOLS[currency];
 
     return (
-        <div className="modal-overlay" onClick={isSaving ? undefined : onClose}>
-            <div className="modal-container" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-overlay">
+            <div ref={modalRef} className="modal-container" role="dialog" aria-modal="true">
                 {/* Header */}
                 <div className="modal-header">
                     <div>
@@ -155,7 +168,6 @@ export const AccountModal: React.FC<AccountModalProps> = ({
                                 if (error) setError('');
                             }}
                             maxLength={50}
-                            autoFocus
                             disabled={isSaving}
                         />
                     </div>

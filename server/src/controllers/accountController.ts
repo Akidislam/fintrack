@@ -47,13 +47,13 @@ interface AccountRow {
 function mapAccountRow(row: AccountRow): AccountResponse {
   const opening = typeof row.opening_balance === "number"
     ? row.opening_balance
-    : parseFloat(row.opening_balance);
+    : Number.parseFloat(row.opening_balance);
   const current = typeof row.current_balance === "number"
     ? row.current_balance
-    : parseFloat(row.current_balance);
+    : Number.parseFloat(row.current_balance);
   const txCount = typeof row.transaction_count === "number"
     ? row.transaction_count
-    : parseInt(String(row.transaction_count), 10) || 0;
+    : Number.parseInt(String(row.transaction_count), 10) || 0;
 
   const createdAtStr = row.created_at instanceof Date
     ? row.created_at.toISOString().split("T")[0]
@@ -248,7 +248,7 @@ export async function createAccount(
     if (openingBalance !== undefined) {
       const parsedBalance = typeof openingBalance === "number"
         ? openingBalance
-        : parseFloat(String(openingBalance));
+        : Number.parseFloat(String(openingBalance));
 
       if (!Number.isFinite(parsedBalance)) {
         res.status(400).json({
@@ -437,7 +437,7 @@ export async function updateAccount(
     if (openingBalance !== undefined) {
       const parsed = typeof openingBalance === "number"
         ? openingBalance
-        : parseFloat(String(openingBalance));
+        : Number.parseFloat(String(openingBalance));
 
       if (!Number.isFinite(parsed)) {
         res.status(400).json({

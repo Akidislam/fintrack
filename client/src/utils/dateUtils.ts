@@ -23,7 +23,7 @@ export function isInYearMonth(
   try {
     const parts = dateStr.split('-');
     if (parts.length < 2) return false;
-    return parseInt(parts[0], 10) === year && parseInt(parts[1], 10) === month;
+    return Number.parseInt(parts[0], 10) === year && Number.parseInt(parts[1], 10) === month;
   } catch {
     return false;
   }

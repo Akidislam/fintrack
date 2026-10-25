@@ -11,7 +11,7 @@ export function escapeCSVField(val: unknown): string {
   }
   const str = String(val);
   if (/[",\r\n]/.test(str)) {
-    return `"${str.replace(/"/g, '""')}"`;
+    return `"${str.replaceAll('"', '""')}"`;
   }
   return str;
 }

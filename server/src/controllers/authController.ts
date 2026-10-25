@@ -4,7 +4,7 @@ import { pool } from "../db";
 import { RegisterDTO, LoginDTO, UserResponse } from "../types";
 import { signToken, setAuthCookie, clearAuthCookie } from "../utils/token";
 
-const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const EMAIL_REGEX = /^[^\s@]+@[^\s@.]+(?:\.[^\s@.]+)+$/;
 const BCRYPT_SALT_ROUNDS = 12;
 
 interface UserRow {
