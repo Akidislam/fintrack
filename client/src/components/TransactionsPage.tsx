@@ -19,6 +19,10 @@ interface TransactionsPageProps {
   onEditTransaction?: (tx: Transaction) => void;
   onDeleteTransaction?: (id: string) => void;
   currency?: SupportedCurrency;
+  isLoading?: boolean;
+  error?: string | null;
+  onClearError?: () => void;
+  onRetry?: () => void;
 }
 
 const ACCOUNT_TYPE_ICONS: Record<AccountType, string> = {
@@ -34,6 +38,10 @@ export const TransactionsPage: React.FC<TransactionsPageProps> = ({
   onEditTransaction,
   onDeleteTransaction,
   currency = 'USD',
+  isLoading = false,
+  error = null,
+  onClearError,
+  onRetry,
 }) => {
   const [filterType, setFilterType] = useState<'all' | TransactionType>('all');
   const [filterAccount, setFilterAccount] = useState<string>('all');
@@ -306,7 +314,53 @@ export const TransactionsPage: React.FC<TransactionsPageProps> = ({
         </div>
       </div>
 
-      {filteredTransactions.length === 0 ? (
+      {/* Global Error Banner */}
+      {error && (
+        <div
+          className="modal-error-alert"
+          style={{
+            margin: '0 0 16px 0',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+          }}
+          role="alert"
+        >
+          <span>⚠️ {error}</span>
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+            {onRetry && (
+              <button
+                className="btn-secondary"
+                style={{ padding: '2px 8px', fontSize: '0.75rem' }}
+                onClick={onRetry}
+              >
+                Retry
+              </button>
+            )}
+            {onClearError && (
+              <button
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  cursor: 'pointer',
+                  fontSize: '1rem',
+                  color: 'inherit',
+                }}
+                onClick={onClearError}
+                aria-label="Dismiss error"
+              >
+                ✕
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
+      {isLoading && transactions.length === 0 ? (
+        <div style={{ textAlign: 'center', padding: '48px 0', color: 'var(--text-subtle)' }}>
+          <p>Loading transactions from server...</p>
+        </div>
+      ) : filteredTransactions.length === 0 ? (
         <div className="empty-state">
           <div className="empty-icon">🔍</div>
           <h3 className="empty-title">No transactions found</h3>

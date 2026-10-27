@@ -11,7 +11,7 @@ import { CURRENCY_SYMBOLS } from '../utils/formatters';
 interface AddTransactionModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSaveTransaction: (data: Omit<Transaction, 'id'>, editId?: string) => void;
+  onSaveTransaction: (data: Omit<Transaction, 'id'>, editId?: string) => Promise<void> | void;
   existingTransaction?: Transaction | null;
   accounts: Account[];
   currency?: SupportedCurrency;
@@ -53,6 +53,7 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
   const [accountId, setAccountId] = useState('');
   const [toAccountId, setToAccountId] = useState('');
   const [error, setError] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Populate form fields on open or when existingTransaction changes
   useEffect(() => {
@@ -105,7 +106,7 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
 
   if (!isOpen) return null;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
 
@@ -134,21 +135,28 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
       }
     }
 
-    onSaveTransaction(
-      {
-        title: title.trim(),
-        amount: parsedAmount,
-        type,
-        category: type === 'transfer' ? 'Transfer' : category,
-        date,
-        note: note.trim() || undefined,
-        accountId: accountId || undefined,
-        toAccountId: type === 'transfer' ? toAccountId || undefined : undefined,
-      },
-      existingTransaction?.id
-    );
+    try {
+      setIsSubmitting(true);
+      await onSaveTransaction(
+        {
+          title: title.trim(),
+          amount: parsedAmount,
+          type,
+          category: type === 'transfer' ? 'Transfer' : category,
+          date,
+          note: note.trim() || undefined,
+          accountId: accountId || undefined,
+          toAccountId: type === 'transfer' ? toAccountId || undefined : undefined,
+        },
+        existingTransaction?.id
+      );
 
-    onClose();
+      onClose();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to save transaction');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const isCurrentAccountDeleted =
@@ -416,11 +424,16 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
           </div>
 
           <div className="modal-actions">
-            <button type="button" className="btn-secondary" onClick={onClose}>
+            <button
+              type="button"
+              className="btn-secondary"
+              onClick={onClose}
+              disabled={isSubmitting}
+            >
               Cancel
             </button>
-            <button type="submit" className="btn-primary">
-              {existingTransaction ? 'Save Changes' : 'Add Transaction'}
+            <button type="submit" className="btn-primary" disabled={isSubmitting}>
+              {isSubmitting ? 'Saving...' : existingTransaction ? 'Save Changes' : 'Add Transaction'}
             </button>
           </div>
         </form>

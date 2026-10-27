@@ -22,11 +22,11 @@ export interface Transaction {
   type: TransactionType;
   category: TransactionCategory;
   date: string;
-  note?: string;
+  note?: string | null;
   /** Associated primary/source account ID */
-  accountId?: string;
+  accountId?: string | null;
   /** Destination account ID (used when type === 'transfer') */
-  toAccountId?: string;
+  toAccountId?: string | null;
 }
 
 export interface FinancialSummary {

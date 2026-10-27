@@ -25,16 +25,6 @@ import { getNavFromLocation, getPathForNav, isValidNavPage, type NavPage } from 
 import { calculateTotalNetWorth } from './utils/accountUtils';
 import { EXPENSE_CATEGORIES } from './utils/transactionFilters';
 
-function loadUserTransactions(userId: string): Transaction[] {
-  try {
-    localStorage.removeItem('fintrack_transactions');
-    const saved = localStorage.getItem(`fintrack_transactions_${userId}`);
-    return saved ? (JSON.parse(saved) as Transaction[]) : [];
-  } catch {
-    return [];
-  }
-}
-
 function loadUserBudgets(userId: string): CategoryBudget[] {
   try {
     localStorage.removeItem('fintrack_budgets');
@@ -74,6 +64,8 @@ export function App() {
 
   // Financial state starts strictly empty for authenticated users
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [transactionsLoading, setTransactionsLoading] = useState(false);
+  const [transactionsError, setTransactionsError] = useState<string | null>(null);
   const [budgets, setBudgets] = useState<CategoryBudget[]>([]);
 
   // Accounts state is strictly sourced from backend API (no stale localStorage fallback)
@@ -95,6 +87,28 @@ export function App() {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
   const [apiStatus, setApiStatus] = useState<'checking' | 'online' | 'offline'>('checking');
+
+  // Fetch latest transactions from backend API
+  const loadTransactions = useCallback(async () => {
+    setTransactionsLoading(true);
+    setTransactionsError(null);
+    try {
+      const data = await api.getTransactions();
+      setTransactions(data);
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 401) {
+        setCurrentUser(null);
+        setAccounts([]);
+        setTransactions([]);
+        setBudgets([]);
+        return;
+      }
+      const message = err instanceof Error ? err.message : 'Failed to load transactions from server';
+      setTransactionsError(message);
+    } finally {
+      setTransactionsLoading(false);
+    }
+  }, []);
 
   // Fetch latest accounts from backend API
   const loadAccounts = useCallback(async () => {
@@ -150,12 +164,12 @@ export function App() {
         const user = await api.getMe(controller.signal);
         if (isMounted) {
           setCurrentUser(user);
-          setTransactions(loadUserTransactions(user.id));
           setBudgets(loadUserBudgets(user.id));
           if (user.currency) {
             setCurrency(user.currency as SupportedCurrency);
           }
           setApiStatus('online');
+          void loadTransactions();
           void loadAccounts();
           void loadCategories();
         }
@@ -186,14 +200,7 @@ export function App() {
       isMounted = false;
       controller.abort();
     };
-  }, [loadAccounts, loadCategories]);
-
-  // Sync transactions to user-scoped localStorage
-  useEffect(() => {
-    if (currentUser?.id) {
-      localStorage.setItem(`fintrack_transactions_${currentUser.id}`, JSON.stringify(transactions));
-    }
-  }, [transactions, currentUser?.id]);
+  }, [loadAccounts, loadCategories, loadTransactions]);
 
   // Sync budgets to user-scoped localStorage
   useEffect(() => {
@@ -272,35 +279,55 @@ export function App() {
       ? Math.max(0, ((summary.totalIncome - summary.totalExpenses) / summary.totalIncome) * 100)
       : 0;
 
-  // Add / Edit transaction handler
-  const handleSaveTransaction = (
+  // Add / Edit transaction handler via Backend API
+  const handleSaveTransaction = async (
     txData: Omit<Transaction, 'id'>,
     editId?: string
   ) => {
+    setTransactionsError(null);
     if (editId) {
+      const updated = await api.updateTransaction(editId, {
+        title: txData.title,
+        amount: txData.amount,
+        type: txData.type,
+        category: txData.category,
+        date: txData.date,
+        note: txData.note,
+        accountId: txData.accountId,
+        toAccountId: txData.toAccountId,
+      });
       setTransactions((prev) =>
-        prev.map((tx) =>
-          tx.id === editId
-            ? { ...txData, id: editId }
-            : tx
-        )
+        prev.map((tx) => (tx.id === editId ? updated : tx))
       );
     } else {
-      const newTx: Transaction = {
-        ...txData,
-        id: `tx-${Date.now()}`,
-      };
-      setTransactions((prev) => [newTx, ...prev]);
+      const created = await api.createTransaction({
+        title: txData.title,
+        amount: txData.amount,
+        type: txData.type,
+        category: txData.category,
+        date: txData.date,
+        note: txData.note,
+        accountId: txData.accountId,
+        toAccountId: txData.toAccountId,
+      });
+      setTransactions((prev) => [created, ...prev]);
     }
-    // Refresh accounts to reflect live balance updates from backend
+    // Refresh accounts to reflect dynamic balance updates from backend
     void loadAccounts();
   };
 
-  // Delete transaction handler
-  const handleDeleteTransaction = (id: string) => {
-    setTransactions((prev) => prev.filter((tx) => tx.id !== id));
-    // Refresh accounts to reflect live balance updates from backend
-    void loadAccounts();
+  // Delete transaction handler via Backend API
+  const handleDeleteTransaction = async (id: string) => {
+    setTransactionsError(null);
+    try {
+      await api.deleteTransaction(id);
+      setTransactions((prev) => prev.filter((tx) => tx.id !== id));
+      // Refresh accounts to reflect dynamic balance updates from backend
+      void loadAccounts();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to delete transaction';
+      setTransactionsError(message);
+    }
   };
 
   // Add / update budget handler
@@ -405,7 +432,6 @@ export function App() {
 
   // Clear local data for the current user session
   const handleResetData = () => {
-    setTransactions([]);
     setBudgets([]);
     if (currentUser?.id) {
       localStorage.removeItem(`fintrack_transactions_${currentUser.id}`);
@@ -414,6 +440,7 @@ export function App() {
     localStorage.removeItem('fintrack_transactions');
     localStorage.removeItem('fintrack_budgets');
     localStorage.removeItem('fintrack_accounts');
+    void loadTransactions();
     void loadAccounts();
   };
 
@@ -453,12 +480,12 @@ export function App() {
       <AuthPage
         onAuthSuccess={(user) => {
           setCurrentUser(user);
-          setTransactions(loadUserTransactions(user.id));
           setBudgets(loadUserBudgets(user.id));
           if (user.currency) {
             setCurrency(user.currency as SupportedCurrency);
           }
           setApiStatus('online');
+          void loadTransactions();
           void loadAccounts();
           void loadCategories();
         }}
@@ -627,6 +654,10 @@ export function App() {
               onDeleteTransaction={handleDeleteTransaction}
               onEditTransaction={handleOpenEditModal}
               currency={currency}
+              isLoading={transactionsLoading}
+              error={transactionsError}
+              onClearError={() => setTransactionsError(null)}
+              onRetry={loadTransactions}
             />
           )}
 

@@ -1,4 +1,4 @@
-import type { Account, AccountType, Category, TransactionType } from '../types';
+import type { Account, AccountType, Category, Transaction, TransactionCategory, TransactionType } from '../types';
 
 export class ApiError extends Error {
   public status: number;
@@ -84,6 +84,43 @@ export interface CreateAccountInput {
   openingBalance?: number;
   currency?: string;
   note?: string;
+}
+
+export interface CreateTransactionInput {
+  title: string;
+  amount: number;
+  type: TransactionType;
+  category?: TransactionCategory | string;
+  categoryName?: string;
+  categoryId?: string | null;
+  date: string;
+  note?: string | null;
+  accountId?: string | null;
+  toAccountId?: string | null;
+}
+
+export interface UpdateTransactionInput {
+  title?: string;
+  amount?: number;
+  type?: TransactionType;
+  category?: TransactionCategory | string;
+  categoryName?: string;
+  categoryId?: string | null;
+  date?: string;
+  note?: string | null;
+  accountId?: string | null;
+  toAccountId?: string | null;
+}
+
+export interface GetTransactionsParams {
+  type?: TransactionType;
+  accountId?: string;
+  category?: string;
+  startDate?: string;
+  endDate?: string;
+  search?: string;
+  limit?: number;
+  offset?: number;
 }
 
 export interface UpdateAccountInput {
@@ -236,5 +273,65 @@ export const api = {
   async getCategories(type?: TransactionType, signal?: AbortSignal): Promise<Category[]> {
     const query = type ? `?type=${type}` : '';
     return request<Category[]>(`/categories${query}`, { signal });
+  },
+
+  /**
+   * Fetch all transactions from PostgreSQL with optional query filters
+   */
+  async getTransactions(
+    params?: GetTransactionsParams,
+    signal?: AbortSignal
+  ): Promise<Transaction[]> {
+    let query = '';
+    if (params) {
+      const sp = new URLSearchParams();
+      if (params.type) sp.set('type', params.type);
+      if (params.accountId) sp.set('accountId', params.accountId);
+      if (params.category) sp.set('category', params.category);
+      if (params.startDate) sp.set('startDate', params.startDate);
+      if (params.endDate) sp.set('endDate', params.endDate);
+      if (params.search) sp.set('search', params.search);
+      if (params.limit !== undefined) sp.set('limit', String(params.limit));
+      if (params.offset !== undefined) sp.set('offset', String(params.offset));
+      const str = sp.toString();
+      if (str) query = `?${str}`;
+    }
+    return request<Transaction[]>(`/transactions${query}`, { signal });
+  },
+
+  /**
+   * Fetch a single transaction by ID
+   */
+  async getTransactionById(id: string, signal?: AbortSignal): Promise<Transaction> {
+    return request<Transaction>(`/transactions/${id}`, { signal });
+  },
+
+  /**
+   * Create a new transaction in PostgreSQL
+   */
+  async createTransaction(input: CreateTransactionInput): Promise<Transaction> {
+    return request<Transaction>('/transactions', {
+      method: 'POST',
+      body: JSON.stringify(input),
+    });
+  },
+
+  /**
+   * Update an existing transaction in PostgreSQL
+   */
+  async updateTransaction(id: string, input: UpdateTransactionInput): Promise<Transaction> {
+    return request<Transaction>(`/transactions/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(input),
+    });
+  },
+
+  /**
+   * Delete a transaction from PostgreSQL
+   */
+  async deleteTransaction(id: string): Promise<{ success: boolean; message: string }> {
+    return request<{ success: boolean; message: string }>(`/transactions/${id}`, {
+      method: 'DELETE',
+    });
   },
 };
