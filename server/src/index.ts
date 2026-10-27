@@ -13,6 +13,7 @@ import { notFoundHandler, errorHandler } from "./middleware/errorHandler";
 import authRoutes from "./routes/authRoutes";
 import categoryRoutes from "./routes/categoryRoutes";
 import accountRoutes from "./routes/accountRoutes";
+import transactionRoutes from "./routes/transactionRoutes";
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -71,6 +72,7 @@ app.get("/api/health/db", async (_req: Request, res: Response) => {
 app.use("/api/auth", authRoutes);
 app.use("/api/categories", categoryRoutes);
 app.use("/api/accounts", accountRoutes);
+app.use("/api/transactions", transactionRoutes);
 
 // Fallback 404 handler for unknown routes
 app.use(notFoundHandler);

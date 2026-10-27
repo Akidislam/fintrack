@@ -56,6 +56,53 @@ export interface CreateCategoryDTO {
   color?: string;
 }
 
+export type TransactionType = 'income' | 'expense' | 'transfer';
+
+export interface TransactionResponse {
+  id: string;
+  userId: string;
+  title: string;
+  amount: number;
+  type: TransactionType;
+  categoryId: string | null;
+  category: string;
+  categoryName: string;
+  date: string;
+  note: string | null;
+  accountId: string | null;
+  toAccountId: string | null;
+  accountName: string | null;
+  toAccountName: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateTransactionDTO {
+  title: string;
+  amount: number;
+  type: TransactionType;
+  category?: string;
+  categoryName?: string;
+  categoryId?: string;
+  date: string;
+  note?: string;
+  accountId?: string;
+  toAccountId?: string;
+}
+
+export interface UpdateTransactionDTO {
+  title?: string;
+  amount?: number;
+  type?: TransactionType;
+  category?: string;
+  categoryName?: string;
+  categoryId?: string | null;
+  date?: string;
+  note?: string | null;
+  accountId?: string | null;
+  toAccountId?: string | null;
+}
+
 export interface UserResponse {
   id: string;
   name: string;
