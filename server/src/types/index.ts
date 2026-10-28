@@ -111,6 +111,34 @@ export interface UserResponse {
   createdAt: string;
 }
 
+export interface BudgetResponse {
+  id: string;
+  userId: string;
+  categoryId: string | null;
+  category: string;
+  categoryName: string;
+  monthlyLimit: number;
+  currentSpent?: number;
+  categoryIcon?: string | null;
+  categoryColor?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateBudgetDTO {
+  category?: string;
+  categoryName?: string;
+  categoryId?: string;
+  monthlyLimit: number;
+}
+
+export interface UpdateBudgetDTO {
+  category?: string;
+  categoryName?: string;
+  categoryId?: string | null;
+  monthlyLimit?: number;
+}
+
 export interface RegisterDTO {
   name: string;
   email: string;

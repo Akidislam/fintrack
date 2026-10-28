@@ -14,6 +14,7 @@ import authRoutes from "./routes/authRoutes";
 import categoryRoutes from "./routes/categoryRoutes";
 import accountRoutes from "./routes/accountRoutes";
 import transactionRoutes from "./routes/transactionRoutes";
+import budgetRoutes from "./routes/budgetRoutes";
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -73,6 +74,7 @@ app.use("/api/auth", authRoutes);
 app.use("/api/categories", categoryRoutes);
 app.use("/api/accounts", accountRoutes);
 app.use("/api/transactions", transactionRoutes);
+app.use("/api/budgets", budgetRoutes);
 
 // Fallback 404 handler for unknown routes
 app.use(notFoundHandler);
