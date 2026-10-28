@@ -56,6 +56,13 @@ export interface CreateCategoryDTO {
   color?: string;
 }
 
+export interface UpdateCategoryDTO {
+  name?: string;
+  type?: CategoryType;
+  icon?: string | null;
+  color?: string | null;
+}
+
 export type TransactionType = 'income' | 'expense' | 'transfer';
 
 export interface TransactionResponse {
