@@ -1,4 +1,4 @@
-import type { Account, AccountType, Category, Transaction, TransactionCategory, TransactionType } from '../types';
+import type { Account, AccountType, Category, CategoryBudget, Transaction, TransactionCategory, TransactionType } from '../types';
 
 export class ApiError extends Error {
   public status: number;
@@ -121,6 +121,20 @@ export interface GetTransactionsParams {
   search?: string;
   limit?: number;
   offset?: number;
+}
+
+export interface CreateBudgetInput {
+  category?: TransactionCategory | string;
+  categoryName?: string;
+  categoryId?: string | null;
+  monthlyLimit: number;
+}
+
+export interface UpdateBudgetInput {
+  category?: TransactionCategory | string;
+  categoryName?: string;
+  categoryId?: string | null;
+  monthlyLimit?: number;
 }
 
 export interface UpdateAccountInput {
@@ -331,6 +345,50 @@ export const api = {
    */
   async deleteTransaction(id: string): Promise<{ success: boolean; message: string }> {
     return request<{ success: boolean; message: string }>(`/transactions/${id}`, {
+      method: 'DELETE',
+    });
+  },
+
+  /**
+   * Fetch all budgets from PostgreSQL
+   */
+  async getBudgets(category?: string, signal?: AbortSignal): Promise<CategoryBudget[]> {
+    const query = category ? `?category=${encodeURIComponent(category)}` : '';
+    return request<CategoryBudget[]>(`/budgets${query}`, { signal });
+  },
+
+  /**
+   * Fetch a single budget by ID
+   */
+  async getBudgetById(id: string, signal?: AbortSignal): Promise<CategoryBudget> {
+    return request<CategoryBudget>(`/budgets/${id}`, { signal });
+  },
+
+  /**
+   * Create a new category budget in PostgreSQL
+   */
+  async createBudget(input: CreateBudgetInput): Promise<CategoryBudget> {
+    return request<CategoryBudget>('/budgets', {
+      method: 'POST',
+      body: JSON.stringify(input),
+    });
+  },
+
+  /**
+   * Update an existing category budget in PostgreSQL
+   */
+  async updateBudget(id: string, input: UpdateBudgetInput): Promise<CategoryBudget> {
+    return request<CategoryBudget>(`/budgets/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(input),
+    });
+  },
+
+  /**
+   * Delete a category budget from PostgreSQL
+   */
+  async deleteBudget(id: string): Promise<{ success: boolean; message: string }> {
+    return request<{ success: boolean; message: string }>(`/budgets/${id}`, {
       method: 'DELETE',
     });
   },

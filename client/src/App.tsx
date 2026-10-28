@@ -23,40 +23,6 @@ import { AnalyticsPage } from './components/AnalyticsPage';
 import { SettingsPage } from './components/SettingsPage';
 import { getNavFromLocation, getPathForNav, isValidNavPage, type NavPage } from './utils/navigation';
 import { calculateTotalNetWorth } from './utils/accountUtils';
-import { EXPENSE_CATEGORIES } from './utils/transactionFilters';
-
-function loadUserBudgets(userId: string): CategoryBudget[] {
-  try {
-    localStorage.removeItem('fintrack_budgets');
-    const saved = localStorage.getItem(`fintrack_budgets_${userId}`);
-    if (!saved) return [];
-    const parsed = JSON.parse(saved);
-    const seenCategories = new Set<string>();
-    const validBudgets: CategoryBudget[] = [];
-    if (Array.isArray(parsed)) {
-      for (const item of parsed) {
-        if (
-          item &&
-          typeof item.id === 'string' &&
-          typeof item.category === 'string' &&
-          typeof item.monthlyLimit === 'number' &&
-          EXPENSE_CATEGORIES.includes(item.category as TransactionCategory) &&
-          !seenCategories.has(item.category)
-        ) {
-          seenCategories.add(item.category);
-          validBudgets.push({
-            id: item.id,
-            category: item.category as TransactionCategory,
-            monthlyLimit: Math.max(0, Math.round((item.monthlyLimit + Number.EPSILON) * 100) / 100),
-          });
-        }
-      }
-    }
-    return validBudgets;
-  } catch {
-    return [];
-  }
-}
 
 export function App() {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -67,6 +33,8 @@ export function App() {
   const [transactionsLoading, setTransactionsLoading] = useState(false);
   const [transactionsError, setTransactionsError] = useState<string | null>(null);
   const [budgets, setBudgets] = useState<CategoryBudget[]>([]);
+  const [budgetsLoading, setBudgetsLoading] = useState(false);
+  const [budgetsError, setBudgetsError] = useState<string | null>(null);
 
   // Accounts state is strictly sourced from backend API (no stale localStorage fallback)
   const [accounts, setAccounts] = useState<Account[]>([]);
@@ -154,6 +122,28 @@ export function App() {
     }
   }, []);
 
+  // Fetch latest budgets from backend API
+  const loadBudgets = useCallback(async () => {
+    setBudgetsLoading(true);
+    setBudgetsError(null);
+    try {
+      const data = await api.getBudgets();
+      setBudgets(data);
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 401) {
+        setCurrentUser(null);
+        setAccounts([]);
+        setTransactions([]);
+        setBudgets([]);
+        return;
+      }
+      const message = err instanceof Error ? err.message : 'Failed to load budgets from server';
+      setBudgetsError(message);
+    } finally {
+      setBudgetsLoading(false);
+    }
+  }, []);
+
   // Check initial authentication state via /api/auth/me on app mount
   useEffect(() => {
     let isMounted = true;
@@ -164,13 +154,13 @@ export function App() {
         const user = await api.getMe(controller.signal);
         if (isMounted) {
           setCurrentUser(user);
-          setBudgets(loadUserBudgets(user.id));
           if (user.currency) {
             setCurrency(user.currency as SupportedCurrency);
           }
           setApiStatus('online');
           void loadTransactions();
           void loadAccounts();
+          void loadBudgets();
           void loadCategories();
         }
       } catch {
@@ -200,14 +190,7 @@ export function App() {
       isMounted = false;
       controller.abort();
     };
-  }, [loadAccounts, loadCategories, loadTransactions]);
-
-  // Sync budgets to user-scoped localStorage
-  useEffect(() => {
-    if (currentUser?.id) {
-      localStorage.setItem(`fintrack_budgets_${currentUser.id}`, JSON.stringify(budgets));
-    }
-  }, [budgets, currentUser?.id]);
+  }, [loadAccounts, loadCategories, loadTransactions, loadBudgets]);
 
   // Handle user navigation (updates state, browser history URL, and localStorage)
   const handleNavigate = (nav: string) => {
@@ -330,31 +313,40 @@ export function App() {
     }
   };
 
-  // Add / update budget handler
-  const handleSaveBudget = (
+  // Add / update budget handler via Backend API
+  const handleSaveBudget = async (
     category: TransactionCategory,
     monthlyLimit: number,
     editId?: string
   ) => {
-    setBudgets((prev) => {
-      if (editId) {
-        return prev.map((b) =>
-          b.id === editId ? { ...b, category, monthlyLimit } : b
-        );
-      }
-      const existing = prev.find((b) => b.category === category);
-      if (existing) {
-        return prev.map((b) =>
-          b.id === existing.id ? { ...b, monthlyLimit } : b
-        );
-      }
-      return [...prev, { id: `b-${Date.now()}`, category, monthlyLimit }];
-    });
+    setBudgetsError(null);
+    if (editId) {
+      const updated = await api.updateBudget(editId, {
+        category,
+        monthlyLimit,
+      });
+      setBudgets((prev) =>
+        prev.map((b) => (b.id === editId ? updated : b))
+      );
+    } else {
+      const created = await api.createBudget({
+        category,
+        monthlyLimit,
+      });
+      setBudgets((prev) => [...prev, created]);
+    }
   };
 
-  // Remove budget handler
-  const handleRemoveBudget = (id: string) => {
-    setBudgets((prev) => prev.filter((b) => b.id !== id));
+  // Remove budget handler via Backend API
+  const handleRemoveBudget = async (id: string) => {
+    setBudgetsError(null);
+    try {
+      await api.deleteBudget(id);
+      setBudgets((prev) => prev.filter((b) => b.id !== id));
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to delete budget';
+      setBudgetsError(message);
+    }
   };
 
   // Open modal for adding a new transaction
@@ -432,7 +424,6 @@ export function App() {
 
   // Clear local data for the current user session
   const handleResetData = () => {
-    setBudgets([]);
     if (currentUser?.id) {
       localStorage.removeItem(`fintrack_transactions_${currentUser.id}`);
       localStorage.removeItem(`fintrack_budgets_${currentUser.id}`);
@@ -442,6 +433,7 @@ export function App() {
     localStorage.removeItem('fintrack_accounts');
     void loadTransactions();
     void loadAccounts();
+    void loadBudgets();
   };
 
   // User logout handler
@@ -480,13 +472,13 @@ export function App() {
       <AuthPage
         onAuthSuccess={(user) => {
           setCurrentUser(user);
-          setBudgets(loadUserBudgets(user.id));
           if (user.currency) {
             setCurrency(user.currency as SupportedCurrency);
           }
           setApiStatus('online');
           void loadTransactions();
           void loadAccounts();
+          void loadBudgets();
           void loadCategories();
         }}
       />
@@ -668,6 +660,10 @@ export function App() {
               onSaveBudget={handleSaveBudget}
               onRemoveBudget={handleRemoveBudget}
               currency={currency}
+              isLoading={budgetsLoading}
+              error={budgetsError}
+              onClearError={() => setBudgetsError(null)}
+              onRetry={loadBudgets}
             />
           )}
 

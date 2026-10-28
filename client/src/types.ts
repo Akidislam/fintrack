@@ -40,6 +40,14 @@ export interface CategoryBudget {
   id: string;
   category: TransactionCategory;
   monthlyLimit: number;
+  userId?: string;
+  categoryId?: string | null;
+  categoryName?: string;
+  currentSpent?: number;
+  categoryIcon?: string | null;
+  categoryColor?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export type SupportedCurrency = 'USD' | 'BDT' | 'EUR' | 'GBP';

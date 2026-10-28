@@ -6,7 +6,7 @@ import { EXPENSE_CATEGORIES } from '../utils/transactionFilters';
 interface BudgetModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (category: TransactionCategory, monthlyLimit: number, editId?: string) => void;
+  onSave: (category: TransactionCategory, monthlyLimit: number, editId?: string) => Promise<void> | void;
   existingBudget?: CategoryBudget | null;
   configuredCategories: TransactionCategory[];
   currency?: SupportedCurrency;
@@ -23,6 +23,7 @@ export const BudgetModal: React.FC<BudgetModalProps> = ({
   const [category, setCategory] = useState<TransactionCategory>('Groceries');
   const [monthlyLimit, setMonthlyLimit] = useState('');
   const [error, setError] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Unbudgeted categories that can have a new budget created.
   // If editing, always include the budget's current category.
@@ -76,7 +77,7 @@ export const BudgetModal: React.FC<BudgetModalProps> = ({
 
   if (!isOpen) return null;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
 
@@ -97,8 +98,15 @@ export const BudgetModal: React.FC<BudgetModalProps> = ({
     }
 
     const cleanLimit = Math.round((parsedLimit + Number.EPSILON) * 100) / 100;
-    onSave(category, cleanLimit, existingBudget?.id);
-    onClose();
+    try {
+      setIsSubmitting(true);
+      await onSave(category, cleanLimit, existingBudget?.id);
+      onClose();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to save budget');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   // If opened when all categories are already budgeted, show a clear informational dialog
@@ -219,11 +227,20 @@ export const BudgetModal: React.FC<BudgetModalProps> = ({
           </div>
 
           <div className="modal-actions">
-            <button type="button" className="btn-secondary" onClick={onClose}>
+            <button
+              type="button"
+              className="btn-secondary"
+              onClick={onClose}
+              disabled={isSubmitting}
+            >
               Cancel
             </button>
-            <button type="submit" className="btn-primary">
-              {existingBudget ? 'Save Changes' : 'Create Budget'}
+            <button type="submit" className="btn-primary" disabled={isSubmitting}>
+              {isSubmitting
+                ? 'Saving...'
+                : existingBudget
+                ? 'Save Changes'
+                : 'Create Budget'}
             </button>
           </div>
         </form>
