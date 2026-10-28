@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import type { Transaction, TransactionType, SupportedCurrency, Account, AccountType, TransactionCategory } from '../types';
+import React, { useState, useMemo } from 'react';
+import type { Transaction, TransactionType, SupportedCurrency, Account, AccountType, TransactionCategory, Category } from '../types';
 import { formatCurrency } from '../utils/formatters';
 import {
   filterTransactions,
@@ -16,6 +16,7 @@ import {
 interface TransactionsPageProps {
   transactions: Transaction[];
   accounts: Account[];
+  categories?: Category[];
   onEditTransaction?: (tx: Transaction) => void;
   onDeleteTransaction?: (id: string) => void;
   currency?: SupportedCurrency;
@@ -35,6 +36,7 @@ const ACCOUNT_TYPE_ICONS: Record<AccountType, string> = {
 export const TransactionsPage: React.FC<TransactionsPageProps> = ({
   transactions,
   accounts,
+  categories,
   onEditTransaction,
   onDeleteTransaction,
   currency = 'USD',
@@ -64,6 +66,9 @@ export const TransactionsPage: React.FC<TransactionsPageProps> = ({
   };
 
   const getCategoryIcon = (category: string) => {
+    const customCat = categories?.find((c) => c.name === category);
+    if (customCat?.icon) return customCat.icon;
+
     switch (category) {
       case 'Salary':
         return '💰';
@@ -96,11 +101,29 @@ export const TransactionsPage: React.FC<TransactionsPageProps> = ({
     }
   };
 
+  const availableCategories = useMemo(() => {
+    if (categories && categories.length > 0) {
+      if (filterType === 'all') {
+        return Array.from(new Set(categories.map((c) => c.name as TransactionCategory)));
+      }
+      const matched = categories.filter((c) => c.type === filterType).map((c) => c.name as TransactionCategory);
+      if (matched.length > 0) return matched;
+    }
+    return getCategoriesForType(filterType);
+  }, [categories, filterType]);
+
   // Adjust category if not applicable to new type
   const handleTypeChange = (newType: 'all' | TransactionType) => {
     setFilterType(newType);
     if (filterCategory !== 'all') {
-      const validCats = getCategoriesForType(newType);
+      let validCats: TransactionCategory[];
+      if (categories && categories.length > 0) {
+        validCats = newType === 'all'
+          ? categories.map((c) => c.name as TransactionCategory)
+          : categories.filter((c) => c.type === newType).map((c) => c.name as TransactionCategory);
+      } else {
+        validCats = getCategoriesForType(newType);
+      }
       if (!validCats.includes(filterCategory)) {
         setFilterCategory('all');
       }
@@ -127,7 +150,6 @@ export const TransactionsPage: React.FC<TransactionsPageProps> = ({
 
   const hasActiveFilters = hasActiveTransactionFilters(filterOptions);
   const filteredTransactions = filterTransactions(transactions, accounts, filterOptions);
-  const availableCategories = getCategoriesForType(filterType);
 
   const handleExportCSV = () => {
     if (filteredTransactions.length === 0) return;

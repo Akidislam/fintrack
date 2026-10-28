@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import type { CategoryBudget, Transaction, TransactionCategory, SupportedCurrency } from '../types';
+import React, { useState, useMemo } from 'react';
+import type { CategoryBudget, Transaction, TransactionCategory, SupportedCurrency, Category } from '../types';
 import { formatCurrency } from '../utils/formatters';
 import { getCurrentYearMonth, isInYearMonth } from '../utils/dateUtils';
 import { EXPENSE_CATEGORIES } from '../utils/transactionFilters';
@@ -11,13 +11,17 @@ interface BudgetsPageProps {
   onSaveBudget: (category: TransactionCategory, monthlyLimit: number, editId?: string) => Promise<void> | void;
   onRemoveBudget: (id: string) => Promise<void> | void;
   currency?: SupportedCurrency;
+  categories?: Category[];
   isLoading?: boolean;
   error?: string | null;
   onClearError?: () => void;
   onRetry?: () => void;
 }
 
-const getCategoryIcon = (category: string): string => {
+const getCategoryIcon = (category: string, categories?: Category[]): string => {
+  const customCat = categories?.find((c) => c.name === category);
+  if (customCat?.icon) return customCat.icon;
+
   switch (category) {
     case 'Housing':
       return '🏠';
@@ -48,6 +52,7 @@ export const BudgetsPage: React.FC<BudgetsPageProps> = ({
   onSaveBudget,
   onRemoveBudget,
   currency = 'USD',
+  categories,
   isLoading = false,
   error = null,
   onClearError,
@@ -82,8 +87,16 @@ export const BudgetsPage: React.FC<BudgetsPageProps> = ({
     return { amount, txCount: matching.length };
   };
 
+  const baseExpenseCategories = useMemo(() => {
+    if (categories && categories.length > 0) {
+      const matched = categories.filter((c) => c.type === 'expense').map((c) => c.name as TransactionCategory);
+      if (matched.length > 0) return matched;
+    }
+    return EXPENSE_CATEGORIES;
+  }, [categories]);
+
   const configuredCategories = budgets.map((b) => b.category);
-  const allCategoriesBudgeted = EXPENSE_CATEGORIES.every((cat) =>
+  const allCategoriesBudgeted = baseExpenseCategories.every((cat) =>
     configuredCategories.includes(cat)
   );
 
@@ -104,7 +117,7 @@ export const BudgetsPage: React.FC<BudgetsPageProps> = ({
         <div className="section-title-wrap">
           <h2 className="section-title">Monthly Budgets</h2>
           <span className="section-subtitle">
-            {currentMonthLabel} • {configuredCategories.length} of {EXPENSE_CATEGORIES.length} expense categories budgeted
+            {currentMonthLabel} • {configuredCategories.length} of {baseExpenseCategories.length} expense categories budgeted
           </span>
         </div>
 
@@ -115,7 +128,7 @@ export const BudgetsPage: React.FC<BudgetsPageProps> = ({
           aria-disabled={allCategoriesBudgeted}
           title={
             allCategoriesBudgeted
-              ? `All ${EXPENSE_CATEGORIES.length} expense categories already have budgets configured`
+              ? `All ${baseExpenseCategories.length} expense categories already have budgets configured`
               : 'Set a monthly budget for an expense category'
           }
         >
@@ -211,7 +224,7 @@ export const BudgetsPage: React.FC<BudgetsPageProps> = ({
                           isOverBudget ? 'expense-badge' : 'income-badge'
                         }`}
                       >
-                        <span>{getCategoryIcon(budget.category)}</span>
+                        <span>{getCategoryIcon(budget.category, categories)}</span>
                       </div>
                       <div>
                         <h3 className="budget-category-title">{budget.category}</h3>
@@ -315,7 +328,7 @@ export const BudgetsPage: React.FC<BudgetsPageProps> = ({
             <div className="budget-all-set-banner">
               <span className="banner-icon">🎯</span>
               <div className="banner-content">
-                <strong>All {EXPENSE_CATEGORIES.length} expense categories are budgeted</strong>
+                <strong>All {baseExpenseCategories.length} expense categories are budgeted</strong>
                 <p>
                   Every expense category has an active monthly limit. Click the edit icon (✏️) on any budget card to adjust its limit, or delete a budget if you want to remove it.
                 </p>
@@ -324,8 +337,8 @@ export const BudgetsPage: React.FC<BudgetsPageProps> = ({
           ) : (
             <div className="budget-unbudgeted-note">
               <span>
-                💡 {EXPENSE_CATEGORIES.length - configuredCategories.length} categories remaining without budgets:{' '}
-                {EXPENSE_CATEGORIES.filter((c) => !configuredCategories.includes(c)).join(', ')}
+                💡 {baseExpenseCategories.length - configuredCategories.length} categories remaining without budgets:{' '}
+                {baseExpenseCategories.filter((c) => !configuredCategories.includes(c)).join(', ')}
               </span>
             </div>
           )}
@@ -340,6 +353,7 @@ export const BudgetsPage: React.FC<BudgetsPageProps> = ({
         existingBudget={editingBudget}
         configuredCategories={configuredCategories}
         currency={currency}
+        categories={categories}
       />
     </div>
   );

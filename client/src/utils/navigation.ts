@@ -2,6 +2,7 @@ export const VALID_NAV_PAGES = [
   'dashboard',
   'accounts',
   'transactions',
+  'categories',
   'budgets',
   'analytics',
   'settings',

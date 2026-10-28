@@ -5,6 +5,7 @@ import type {
   TransactionCategory,
   SupportedCurrency,
   Account,
+  Category,
 } from '../types';
 import { CURRENCY_SYMBOLS } from '../utils/formatters';
 
@@ -15,6 +16,7 @@ interface AddTransactionModalProps {
   existingTransaction?: Transaction | null;
   accounts: Account[];
   currency?: SupportedCurrency;
+  categories?: Category[];
 }
 
 const EXPENSE_CATEGORIES: TransactionCategory[] = [
@@ -43,6 +45,7 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
   existingTransaction,
   accounts,
   currency = 'USD',
+  categories,
 }) => {
   const [title, setTitle] = useState('');
   const [amount, setAmount] = useState('');
@@ -79,6 +82,16 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
     }
     setError('');
   }, [existingTransaction, isOpen, accounts]);
+
+  const availableCategories = React.useMemo(() => {
+    if (categories && categories.length > 0) {
+      const matched = categories.filter((c) => c.type === type);
+      if (matched.length > 0) {
+        return matched.map((c) => c.name);
+      }
+    }
+    return type === 'income' ? INCOME_CATEGORIES : EXPENSE_CATEGORIES;
+  }, [categories, type]);
 
   const modalRef = useRef<HTMLDivElement>(null);
 
@@ -201,8 +214,11 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
                 className={`type-toggle-btn expense ${type === 'expense' ? 'selected' : ''}`}
                 onClick={() => {
                   setType('expense');
-                  if (category === 'Salary' || category === 'Freelance' || category === 'Transfer') {
-                    setCategory('Groceries');
+                  const expenseCats = categories && categories.length > 0
+                    ? categories.filter((c) => c.type === 'expense').map((c) => c.name)
+                    : EXPENSE_CATEGORIES;
+                  if (!expenseCats.includes(category)) {
+                    setCategory(expenseCats[0] || 'Groceries');
                   }
                 }}
               >
@@ -213,7 +229,12 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
                 className={`type-toggle-btn income ${type === 'income' ? 'selected' : ''}`}
                 onClick={() => {
                   setType('income');
-                  setCategory('Salary');
+                  const incomeCats = categories && categories.length > 0
+                    ? categories.filter((c) => c.type === 'income').map((c) => c.name)
+                    : INCOME_CATEGORIES;
+                  if (!incomeCats.includes(category)) {
+                    setCategory(incomeCats[0] || 'Salary');
+                  }
                 }}
               >
                 🟢 Income
@@ -302,7 +323,12 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
                   onChange={(e) => setCategory(e.target.value as TransactionCategory)}
                   className="form-select"
                 >
-                  {(type === 'income' ? INCOME_CATEGORIES : EXPENSE_CATEGORIES).map((cat) => (
+                  {category && !availableCategories.includes(category) && (
+                    <option key={category} value={category}>
+                      {category}
+                    </option>
+                  )}
+                  {availableCategories.map((cat) => (
                     <option key={cat} value={cat}>
                       {cat}
                     </option>

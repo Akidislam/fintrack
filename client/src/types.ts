@@ -13,7 +13,8 @@ export type TransactionCategory =
   | 'Healthcare'
   | 'Shopping'
   | 'Transfer'
-  | 'Other';
+  | 'Other'
+  | (string & {});
 
 export interface Transaction {
   id: string;

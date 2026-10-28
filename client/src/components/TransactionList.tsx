@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
-import type { Transaction, TransactionType, SupportedCurrency, Account, AccountType } from '../types';
+import type { Transaction, TransactionType, SupportedCurrency, Account, AccountType, Category } from '../types';
 import { formatCurrency } from '../utils/formatters';
 
 interface TransactionListProps {
   transactions: Transaction[];
   accounts: Account[];
+  categories?: Category[];
   onDeleteTransaction: (id: string) => void;
   onEditTransaction: (tx: Transaction) => void;
   onOpenAddModal: () => void;
@@ -21,6 +22,7 @@ const ACCOUNT_TYPE_ICONS: Record<AccountType, string> = {
 export const TransactionList: React.FC<TransactionListProps> = ({
   transactions,
   accounts,
+  categories,
   onDeleteTransaction,
   onEditTransaction,
   onOpenAddModal,
@@ -44,6 +46,9 @@ export const TransactionList: React.FC<TransactionListProps> = ({
   };
 
   const getCategoryIcon = (category: string) => {
+    const customCat = categories?.find((c) => c.name === category);
+    if (customCat?.icon) return customCat.icon;
+
     switch (category) {
       case 'Salary':
         return '💰';

@@ -10,7 +10,7 @@ import type {
   Category,
   User,
 } from './types';
-import { api, ApiError } from './services/api';
+import { api, ApiError, type CreateCategoryInput } from './services/api';
 import { AuthPage } from './components/AuthPage';
 import { Sidebar } from './components/Sidebar';
 import { SummaryCards } from './components/SummaryCards';
@@ -18,6 +18,7 @@ import { TransactionList } from './components/TransactionList';
 import { AddTransactionModal } from './components/AddTransactionModal';
 import { AccountsPage } from './components/AccountsPage';
 import { TransactionsPage } from './components/TransactionsPage';
+import { CategoriesPage } from './components/CategoriesPage';
 import { BudgetsPage } from './components/BudgetsPage';
 import { AnalyticsPage } from './components/AnalyticsPage';
 import { SettingsPage } from './components/SettingsPage';
@@ -41,9 +42,9 @@ export function App() {
   const [accountsLoading, setAccountsLoading] = useState(false);
   const [accountsError, setAccountsError] = useState<string | null>(null);
 
-  const [, setCategories] = useState<Category[]>([]);
-  const [, setCategoriesLoading] = useState(false);
-  const [, setCategoriesError] = useState<string | null>(null);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [categoriesLoading, setCategoriesLoading] = useState(false);
+  const [categoriesError, setCategoriesError] = useState<string | null>(null);
 
   const [currency, setCurrency] = useState<SupportedCurrency>(() => {
     const saved = localStorage.getItem('fintrack_currency');
@@ -217,6 +218,7 @@ export function App() {
       dashboard: 'Dashboard | FinTrack',
       accounts: 'Accounts | FinTrack',
       transactions: 'Transactions | FinTrack',
+      categories: 'Categories | FinTrack',
       budgets: 'Budgets | FinTrack',
       analytics: 'Analytics | FinTrack',
       settings: 'Settings | FinTrack',
@@ -349,6 +351,38 @@ export function App() {
     }
   };
 
+  // Add / Edit category handler via Backend API
+  const handleSaveCategory = async (
+    data: CreateCategoryInput,
+    editId?: string
+  ) => {
+    setCategoriesError(null);
+    if (editId) {
+      const updated = await api.updateCategory(editId, data);
+      setCategories((prev) =>
+        prev.map((c) => (c.id === editId ? updated : c))
+      );
+    } else {
+      const created = await api.createCategory(data);
+      setCategories((prev) => [...prev, created]);
+    }
+    void loadCategories();
+  };
+
+  // Delete category handler via Backend API
+  const handleDeleteCategory = async (id: string) => {
+    setCategoriesError(null);
+    try {
+      await api.deleteCategory(id);
+      setCategories((prev) => prev.filter((c) => c.id !== id));
+      void loadCategories();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to delete category';
+      setCategoriesError(message);
+      throw err;
+    }
+  };
+
   // Open modal for adding a new transaction
   const handleOpenAddModal = () => {
     setEditingTransaction(null);
@@ -453,6 +487,7 @@ export function App() {
     setAccounts([]);
     setTransactions([]);
     setBudgets([]);
+    setCategories([]);
     setActiveNav('dashboard');
   };
 
@@ -529,6 +564,7 @@ export function App() {
               {activeNav === 'dashboard' && 'Dashboard'}
               {activeNav === 'accounts' && 'Accounts'}
               {activeNav === 'transactions' && 'Transactions'}
+              {activeNav === 'categories' && 'Categories'}
               {activeNav === 'budgets' && 'Budgets'}
               {activeNav === 'analytics' && 'Analytics'}
               {activeNav === 'settings' && 'Settings'}
@@ -537,6 +573,7 @@ export function App() {
               {activeNav === 'dashboard' && 'Overview of your personal financial metrics and recent cash flows.'}
               {activeNav === 'accounts' && 'Manage your financial accounts and real-time balances.'}
               {activeNav === 'transactions' && 'View, search, and manage all recorded transactions.'}
+              {activeNav === 'categories' && 'Manage expense and income categories for your transactions and budgets.'}
               {activeNav === 'budgets' && 'Monitor category spend limits and monthly allowances.'}
               {activeNav === 'analytics' && 'Inspect categorized expense patterns and savings velocity.'}
               {activeNav === 'settings' && 'Preferences, storage status, and application info.'}
@@ -616,6 +653,7 @@ export function App() {
               <TransactionList
                 transactions={transactions}
                 accounts={accounts}
+                categories={categories}
                 onDeleteTransaction={handleDeleteTransaction}
                 onEditTransaction={handleOpenEditModal}
                 onOpenAddModal={handleOpenAddModal}
@@ -643,6 +681,7 @@ export function App() {
             <TransactionsPage
               transactions={transactions}
               accounts={accounts}
+              categories={categories}
               onDeleteTransaction={handleDeleteTransaction}
               onEditTransaction={handleOpenEditModal}
               currency={currency}
@@ -653,10 +692,23 @@ export function App() {
             />
           )}
 
+          {activeNav === 'categories' && (
+            <CategoriesPage
+              categories={categories}
+              onSaveCategory={handleSaveCategory}
+              onDeleteCategory={handleDeleteCategory}
+              isLoading={categoriesLoading}
+              error={categoriesError}
+              onClearError={() => setCategoriesError(null)}
+              onRetry={loadCategories}
+            />
+          )}
+
           {activeNav === 'budgets' && (
             <BudgetsPage
               budgets={budgets}
               transactions={transactions}
+              categories={categories}
               onSaveBudget={handleSaveBudget}
               onRemoveBudget={handleRemoveBudget}
               currency={currency}
@@ -702,6 +754,7 @@ export function App() {
         existingTransaction={editingTransaction}
         accounts={accounts}
         currency={currency}
+        categories={categories}
       />
     </div>
   );

@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useRef } from 'react';
-import type { CategoryBudget, TransactionCategory, SupportedCurrency } from '../types';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
+import type { CategoryBudget, TransactionCategory, SupportedCurrency, Category } from '../types';
 import { CURRENCY_SYMBOLS } from '../utils/formatters';
 import { EXPENSE_CATEGORIES } from '../utils/transactionFilters';
 
@@ -10,6 +10,7 @@ interface BudgetModalProps {
   existingBudget?: CategoryBudget | null;
   configuredCategories: TransactionCategory[];
   currency?: SupportedCurrency;
+  categories?: Category[];
 }
 
 export const BudgetModal: React.FC<BudgetModalProps> = ({
@@ -19,15 +20,24 @@ export const BudgetModal: React.FC<BudgetModalProps> = ({
   existingBudget,
   configuredCategories,
   currency = 'USD',
+  categories,
 }) => {
   const [category, setCategory] = useState<TransactionCategory>('Groceries');
   const [monthlyLimit, setMonthlyLimit] = useState('');
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  const baseExpenseCategories = useMemo(() => {
+    if (categories && categories.length > 0) {
+      const matched = categories.filter((c) => c.type === 'expense').map((c) => c.name as TransactionCategory);
+      if (matched.length > 0) return matched;
+    }
+    return EXPENSE_CATEGORIES;
+  }, [categories]);
+
   // Unbudgeted categories that can have a new budget created.
   // If editing, always include the budget's current category.
-  const availableCategories = EXPENSE_CATEGORIES.filter(
+  const availableCategories = baseExpenseCategories.filter(
     (cat) =>
       !configuredCategories.includes(cat) ||
       (existingBudget && existingBudget.category === cat)
@@ -42,14 +52,14 @@ export const BudgetModal: React.FC<BudgetModalProps> = ({
       setMonthlyLimit(existingBudget.monthlyLimit.toString());
       setError('');
     } else {
-      const available = EXPENSE_CATEGORIES.filter((cat) => !configuredCategories.includes(cat));
+      const available = baseExpenseCategories.filter((cat) => !configuredCategories.includes(cat));
       if (available.length > 0) {
         setCategory(available[0]);
       }
       setMonthlyLimit('');
       setError('');
     }
-  }, [existingBudget, configuredCategories, isOpen]);
+  }, [existingBudget, configuredCategories, isOpen, baseExpenseCategories]);
 
   const modalRef = useRef<HTMLDivElement>(null);
 
@@ -119,7 +129,7 @@ export const BudgetModal: React.FC<BudgetModalProps> = ({
             <div>
               <h2 className="modal-title">All Categories Budgeted</h2>
               <p className="modal-subtitle">
-                All {EXPENSE_CATEGORIES.length} expense categories already have monthly budgets
+                All {baseExpenseCategories.length} expense categories already have monthly budgets
               </p>
             </div>
             <button className="modal-close-btn" onClick={onClose} aria-label="Close modal">
@@ -131,11 +141,11 @@ export const BudgetModal: React.FC<BudgetModalProps> = ({
             <div className="modal-all-budgeted-icon">🎯</div>
             <h3 className="modal-all-budgeted-heading">Every expense category has an active budget</h3>
             <p className="modal-all-budgeted-desc">
-              FinTrack tracks budgets across all <strong>{EXPENSE_CATEGORIES.length} expense categories</strong>. Each category currently has a monthly limit assigned, so no new category budget can be added right now.
+              FinTrack tracks budgets across all <strong>{baseExpenseCategories.length} expense categories</strong>. Each category currently has a monthly limit assigned, so no new category budget can be added right now.
             </p>
 
             <div className="modal-category-chips">
-              {EXPENSE_CATEGORIES.map((cat) => (
+              {baseExpenseCategories.map((cat) => (
                 <span key={cat} className="modal-category-chip">
                   ✓ {cat}
                 </span>

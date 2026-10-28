@@ -137,6 +137,20 @@ export interface UpdateBudgetInput {
   monthlyLimit?: number;
 }
 
+export interface CreateCategoryInput {
+  name: string;
+  type: TransactionType;
+  icon?: string;
+  color?: string;
+}
+
+export interface UpdateCategoryInput {
+  name?: string;
+  type?: TransactionType;
+  icon?: string | null;
+  color?: string | null;
+}
+
 export interface UpdateAccountInput {
   name?: string;
   type?: AccountType;
@@ -287,6 +301,42 @@ export const api = {
   async getCategories(type?: TransactionType, signal?: AbortSignal): Promise<Category[]> {
     const query = type ? `?type=${type}` : '';
     return request<Category[]>(`/categories${query}`, { signal });
+  },
+
+  /**
+   * Fetch a single category by ID
+   */
+  async getCategoryById(id: string, signal?: AbortSignal): Promise<Category> {
+    return request<Category>(`/categories/${id}`, { signal });
+  },
+
+  /**
+   * Create a new custom category
+   */
+  async createCategory(input: CreateCategoryInput): Promise<Category> {
+    return request<Category>('/categories', {
+      method: 'POST',
+      body: JSON.stringify(input),
+    });
+  },
+
+  /**
+   * Update an existing custom category
+   */
+  async updateCategory(id: string, input: UpdateCategoryInput): Promise<Category> {
+    return request<Category>(`/categories/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(input),
+    });
+  },
+
+  /**
+   * Delete a custom category
+   */
+  async deleteCategory(id: string): Promise<{ success: boolean; message: string }> {
+    return request<{ success: boolean; message: string }>(`/categories/${id}`, {
+      method: 'DELETE',
+    });
   },
 
   /**
