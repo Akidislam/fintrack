@@ -6,6 +6,8 @@ interface TransactionListProps {
   transactions: Transaction[];
   accounts: Account[];
   categories?: Category[];
+  maxItems?: number;
+  onViewAll?: () => void;
   onDeleteTransaction: (id: string) => void;
   onEditTransaction: (tx: Transaction) => void;
   onOpenAddModal: () => void;
@@ -23,6 +25,8 @@ export const TransactionList: React.FC<TransactionListProps> = ({
   transactions,
   accounts,
   categories,
+  maxItems,
+  onViewAll,
   onDeleteTransaction,
   onEditTransaction,
   onOpenAddModal,
@@ -102,13 +106,19 @@ export const TransactionList: React.FC<TransactionListProps> = ({
     return matchesFilter && matchesAccount && matchesSearch;
   });
 
+  // When maxItems is set (e.g. on the Dashboard), only show the first N items
+  const isCapped = maxItems != null && filteredTransactions.length > maxItems;
+  const displayedTransactions = maxItems
+    ? filteredTransactions.slice(0, maxItems)
+    : filteredTransactions;
+
   return (
     <div className="transactions-section">
       <div className="section-header">
         <div className="section-title-wrap">
           <h2 className="section-title">Recent Transactions</h2>
           <span className="section-subtitle">
-            Showing {filteredTransactions.length} of {transactions.length} transactions
+            Showing {displayedTransactions.length} of {transactions.length} transactions
           </span>
         </div>
 
@@ -201,7 +211,7 @@ export const TransactionList: React.FC<TransactionListProps> = ({
       ) : (
         <div className="transactions-table-card">
           <div className="transactions-list">
-            {filteredTransactions.map((tx) => {
+            {displayedTransactions.map((tx) => {
               const isIncome = tx.type === 'income';
               const isTransfer = tx.type === 'transfer';
 
@@ -316,6 +326,15 @@ export const TransactionList: React.FC<TransactionListProps> = ({
               );
             })}
           </div>
+          {isCapped && onViewAll && (
+            <button
+              className="empty-action-btn"
+              onClick={onViewAll}
+              style={{ marginTop: '0.75rem', width: '100%' }}
+            >
+              View all {filteredTransactions.length} transactions →
+            </button>
+          )}
         </div>
       )}
     </div>

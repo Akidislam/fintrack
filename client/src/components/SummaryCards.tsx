@@ -42,7 +42,7 @@ export const SummaryCards: React.FC<SummaryCardsProps> = ({ summary, currency = 
           <span className={`stat-pill ${summary.totalIncome > 0 ? 'positive' : 'neutral'}`}>
             {summary.totalIncome > 0 ? 'Inbound income' : 'No income yet'}
           </span>
-          <span className="card-subtext">This period</span>
+          <span className="card-subtext">All-time total</span>
         </div>
       </div>
 
@@ -62,7 +62,7 @@ export const SummaryCards: React.FC<SummaryCardsProps> = ({ summary, currency = 
           <span className="stat-pill neutral">
             {summary.totalExpenses > 0 ? 'Recorded expenses' : 'No expenses yet'}
           </span>
-          <span className="card-subtext">{summary.totalExpenses > 0 ? 'Monthly spending' : 'Zero expenses'}</span>
+          <span className="card-subtext">{summary.totalExpenses > 0 ? 'All-time spending' : 'Zero expenses'}</span>
         </div>
       </div>
 

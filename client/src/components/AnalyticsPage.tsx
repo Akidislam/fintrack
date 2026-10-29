@@ -1,10 +1,11 @@
 import React from 'react';
-import type { Transaction, SupportedCurrency } from '../types';
+import type { Transaction, SupportedCurrency, Category } from '../types';
 import { formatCurrency } from '../utils/formatters';
 import { getCurrentYearMonth, isInYearMonth } from '../utils/dateUtils';
 
 interface AnalyticsPageProps {
   transactions: Transaction[];
+  categories?: Category[];
   currency?: SupportedCurrency;
 }
 
@@ -18,10 +19,14 @@ interface MonthlyData {
 
 export const AnalyticsPage: React.FC<AnalyticsPageProps> = ({
   transactions,
+  categories,
   currency = 'USD',
 }) => {
 
   const getCategoryIcon = (category: string) => {
+    // Check user-defined categories first
+    const customCat = categories?.find((c) => c.name === category);
+    if (customCat?.icon) return customCat.icon;
     switch (category) {
       case 'Salary':
         return '💰';

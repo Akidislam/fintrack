@@ -250,14 +250,20 @@ export function App() {
     }
   );
 
-  // totalBalance: when accounts exist, use the true net worth (sum of all
-  // account balances = opening balances + income − expenses ± transfers).
-  // When no accounts exist, compute from real transactions (income − expenses),
-  // resulting in 0 if no transactions exist.
-  summary.totalBalance =
-    accounts.length > 0
-      ? calculateTotalNetWorth(accounts, transactions)
-      : summary.totalIncome - summary.totalExpenses;
+  // totalBalance: start with the true net worth across all accounts (sum of
+  // opening balances + account-linked income − expenses ± transfers). Then add
+  // the net of unassigned transactions (those with no accountId) so they are
+  // not silently excluded. Transfers always have accountId, so the filter
+  // below safely ignores them and avoids double-counting.
+  if (accounts.length > 0) {
+    const accountNetWorth = calculateTotalNetWorth(accounts, transactions);
+    const unassignedNet = transactions
+      .filter((tx) => !tx.accountId && tx.type !== 'transfer')
+      .reduce((sum, tx) => sum + (tx.type === 'income' ? tx.amount : -tx.amount), 0);
+    summary.totalBalance = accountNetWorth + unassignedNet;
+  } else {
+    summary.totalBalance = summary.totalIncome - summary.totalExpenses;
+  }
 
   summary.savingsRate =
     summary.totalIncome > 0
@@ -654,6 +660,8 @@ export function App() {
                 transactions={transactions}
                 accounts={accounts}
                 categories={categories}
+                maxItems={10}
+                onViewAll={() => handleNavigate('transactions')}
                 onDeleteTransaction={handleDeleteTransaction}
                 onEditTransaction={handleOpenEditModal}
                 onOpenAddModal={handleOpenAddModal}
@@ -720,7 +728,7 @@ export function App() {
           )}
 
           {activeNav === 'analytics' && (
-            <AnalyticsPage transactions={transactions} currency={currency} />
+            <AnalyticsPage transactions={transactions} categories={categories} currency={currency} />
           )}
 
           {activeNav === 'settings' && (
