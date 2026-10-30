@@ -159,17 +159,17 @@ export const TransactionsPage: React.FC<TransactionsPageProps> = ({
   };
 
   return (
-    <div className="transactions-section">
-      <div className="section-header">
+    <div className="transactions-section transactions-page">
+      <div className="section-header transactions-page-header">
         <div className="section-title-wrap">
-          <h2 className="section-title">All Transactions</h2>
+          <h2 className="section-title">All transactions</h2>
           <span className="section-subtitle">
             Showing {filteredTransactions.length} of {transactions.length} transactions
             {hasActiveFilters && ' • Filters active'}
           </span>
         </div>
 
-        <div className="section-controls">
+        <div className="section-controls transaction-filters">
           {/* 1. Search Box */}
           <div className="search-box">
             <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -200,24 +200,28 @@ export const TransactionsPage: React.FC<TransactionsPageProps> = ({
           <div className="filter-pills" role="group" aria-label="Filter by transaction type">
             <button
               className={`filter-pill ${filterType === 'all' ? 'active' : ''}`}
+              aria-pressed={filterType === 'all'}
               onClick={() => handleTypeChange('all')}
             >
               All
             </button>
             <button
               className={`filter-pill ${filterType === 'income' ? 'active' : ''}`}
+              aria-pressed={filterType === 'income'}
               onClick={() => handleTypeChange('income')}
             >
               Income
             </button>
             <button
               className={`filter-pill ${filterType === 'expense' ? 'active' : ''}`}
+              aria-pressed={filterType === 'expense'}
               onClick={() => handleTypeChange('expense')}
             >
               Expenses
             </button>
             <button
               className={`filter-pill ${filterType === 'transfer' ? 'active' : ''}`}
+              aria-pressed={filterType === 'transfer'}
               onClick={() => handleTypeChange('transfer')}
             >
               Transfers
@@ -379,12 +383,13 @@ export const TransactionsPage: React.FC<TransactionsPageProps> = ({
       )}
 
       {isLoading && transactions.length === 0 ? (
-        <div style={{ textAlign: 'center', padding: '48px 0', color: 'var(--text-subtle)' }}>
-          <p>Loading transactions from server...</p>
+        <div className="transactions-loading-state" role="status" aria-live="polite">
+          <span className="transactions-loading-spinner" aria-hidden="true" />
+          <span>Loading transactions…</span>
         </div>
       ) : filteredTransactions.length === 0 ? (
-        <div className="empty-state">
-          <div className="empty-icon">🔍</div>
+        <div className="empty-state transactions-empty-state">
+          <div className="empty-icon" aria-hidden="true">{hasActiveFilters ? '⌕' : '↔'}</div>
           <h3 className="empty-title">No transactions found</h3>
           <p className="empty-desc">
             {hasActiveFilters
@@ -408,7 +413,7 @@ export const TransactionsPage: React.FC<TransactionsPageProps> = ({
               const toAccount = accounts.find((a) => a.id === tx.toAccountId);
 
               return (
-                <div key={tx.id} className="transaction-row">
+                <article key={tx.id} className={`transaction-row transaction-page-row ${isIncome ? 'transaction-income' : isTransfer ? 'transaction-transfer' : 'transaction-expense'}`}>
                   <div className="tx-main">
                     <div
                       className={`tx-icon-badge ${
@@ -467,7 +472,12 @@ export const TransactionsPage: React.FC<TransactionsPageProps> = ({
                               </span>
                             )}
                           </>
-                        ) : null}
+                        ) : (
+                          <>
+                            <span className="tx-dot">•</span>
+                            <span className="tx-account-badge">Unassigned</span>
+                          </>
+                        )}
 
                         <span className="tx-dot">•</span>
                         <span className="tx-date">{formatDate(tx.date)}</span>
@@ -497,7 +507,7 @@ export const TransactionsPage: React.FC<TransactionsPageProps> = ({
 
                     {onEditTransaction && (
                       <button
-                        className="budget-action-btn"
+                        className="transaction-action-btn"
                         onClick={() => onEditTransaction(tx)}
                         title={`Edit transaction "${tx.title}"`}
                         aria-label={`Edit ${tx.title}`}
@@ -511,7 +521,7 @@ export const TransactionsPage: React.FC<TransactionsPageProps> = ({
 
                     {onDeleteTransaction && (
                       <button
-                        className="budget-action-btn delete"
+                        className="transaction-action-btn delete"
                         onClick={() => onDeleteTransaction(tx.id)}
                         title="Delete transaction"
                         aria-label={`Delete ${tx.title}`}
@@ -523,7 +533,7 @@ export const TransactionsPage: React.FC<TransactionsPageProps> = ({
                       </button>
                     )}
                   </div>
-                </div>
+                </article>
               );
             })}
           </div>

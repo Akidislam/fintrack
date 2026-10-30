@@ -181,7 +181,7 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
     <div className="modal-overlay">
       <div
         ref={modalRef}
-        className="modal-container"
+        className="modal-container transaction-modal"
         role="dialog"
         aria-modal="true"
         aria-labelledby="modal-title"
