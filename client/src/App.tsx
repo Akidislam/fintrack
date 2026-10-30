@@ -688,7 +688,7 @@ export function App() {
                 transactions={transactions}
                 accounts={accounts}
                 categories={categories}
-                maxItems={10}
+                maxItems={5}
                 onViewAll={() => handleNavigate('transactions')}
                 onDeleteTransaction={handleDeleteTransaction}
                 onEditTransaction={handleOpenEditModal}

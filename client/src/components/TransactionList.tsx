@@ -83,37 +83,39 @@ export const TransactionList: React.FC<TransactionListProps> = ({
     }
   };
 
-  const filteredTransactions = transactions.filter((tx) => {
-    const matchesFilter = filterType === 'all' || tx.type === filterType;
+  const filteredTransactions = transactions
+    .slice()
+    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+    .filter((tx) => {
+      const matchesFilter = filterType === 'all' || tx.type === filterType;
 
-    let matchesAccount = true;
-    if (filterAccount === 'unassigned') {
-      matchesAccount = !tx.accountId && !tx.toAccountId;
-    } else if (filterAccount !== 'all') {
-      matchesAccount = tx.accountId === filterAccount || tx.toAccountId === filterAccount;
-    }
+      let matchesAccount = true;
+      if (filterAccount === 'unassigned') {
+        matchesAccount = !tx.accountId && !tx.toAccountId;
+      } else if (filterAccount !== 'all') {
+        matchesAccount = tx.accountId === filterAccount || tx.toAccountId === filterAccount;
+      }
 
-    const fromAccount = accounts.find((a) => a.id === tx.accountId);
-    const toAccount = accounts.find((a) => a.id === tx.toAccountId);
-    const accountNames = `${fromAccount?.name || ''} ${toAccount?.name || ''}`;
+      const fromAccount = accounts.find((a) => a.id === tx.accountId);
+      const toAccount = accounts.find((a) => a.id === tx.toAccountId);
+      const accountNames = `${fromAccount?.name || ''} ${toAccount?.name || ''}`;
 
-    const matchesSearch =
-      tx.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      tx.category.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (tx.note && tx.note.toLowerCase().includes(searchQuery.toLowerCase())) ||
-      accountNames.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchesSearch =
+        tx.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        tx.category.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (tx.note && tx.note.toLowerCase().includes(searchQuery.toLowerCase())) ||
+        accountNames.toLowerCase().includes(searchQuery.toLowerCase());
 
-    return matchesFilter && matchesAccount && matchesSearch;
-  });
+      return matchesFilter && matchesAccount && matchesSearch;
+    });
 
   // When maxItems is set (e.g. on the Dashboard), only show the first N items
-  const isCapped = maxItems != null && filteredTransactions.length > maxItems;
   const displayedTransactions = maxItems
     ? filteredTransactions.slice(0, maxItems)
     : filteredTransactions;
 
   return (
-    <div className="transactions-section">
+    <div className={maxItems != null ? 'transactions-section dashboard-transactions-section' : 'transactions-section'}>
       <div className="section-header">
         <div className="section-title-wrap">
           <h2 className="section-title">Recent Transactions</h2>
@@ -121,6 +123,15 @@ export const TransactionList: React.FC<TransactionListProps> = ({
             Showing {displayedTransactions.length} of {transactions.length} transactions
           </span>
         </div>
+
+        {onViewAll && (
+          <button className="transactions-view-all" onClick={onViewAll}>
+            View all transactions
+            <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M5 12h14m-7-7 7 7-7 7" />
+            </svg>
+          </button>
+        )}
 
         <div className="section-controls">
           {/* Search Box */}
@@ -326,15 +337,6 @@ export const TransactionList: React.FC<TransactionListProps> = ({
               );
             })}
           </div>
-          {isCapped && onViewAll && (
-            <button
-              className="empty-action-btn"
-              onClick={onViewAll}
-              style={{ marginTop: '0.75rem', width: '100%' }}
-            >
-              View all {filteredTransactions.length} transactions →
-            </button>
-          )}
         </div>
       )}
     </div>

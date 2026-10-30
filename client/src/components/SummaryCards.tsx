@@ -9,86 +9,71 @@ interface SummaryCardsProps {
 
 export const SummaryCards: React.FC<SummaryCardsProps> = ({ summary, currency = 'USD' }) => {
   return (
-    <div className="summary-grid">
-      {/* 1. Total Balance Card (Hero fintech gradient card) */}
-      <div className="summary-card balance-card">
-        <div className="balance-card-bg-glow" />
-        <div className="card-top">
-          <div className="card-label-light">TOTAL NET BALANCE</div>
-          <span className="balance-chip">Active Vault</span>
-        </div>
-        <div className="balance-amount">{formatCurrency(summary.totalBalance, currency)}</div>
-        <div className="card-bottom">
-          <div className="trend-badge positive">
-            <span>{summary.totalBalance !== 0 ? 'Active Balance' : 'Zero Net Balance'}</span>
+    <section className="summary-grid dashboard-summary-grid" aria-label="Financial summary">
+      <article className="summary-card dashboard-summary-card dashboard-balance-card">
+        <div className="dashboard-summary-card-heading">
+          <div>
+            <h2 className="dashboard-summary-label">Total net balance</h2>
+            <p className="dashboard-summary-period">Current balance</p>
           </div>
-          <span className="card-subtext-light">Real-time status</span>
-        </div>
-      </div>
-
-      {/* 2. Total Income Card */}
-      <div className="summary-card stat-card income-card">
-        <div className="card-top">
-          <div className="stat-label">TOTAL INCOME</div>
-          <div className="stat-icon-wrapper income">
-            <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <line x1="12" y1="19" x2="12" y2="5"></line>
-              <polyline points="5 12 12 5 19 12"></polyline>
+          <span className="dashboard-summary-icon balance" aria-hidden="true">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="3" y="5" width="18" height="14" rx="2" />
+              <path d="M3 10h18M7 15h3" />
             </svg>
-          </div>
-        </div>
-        <div className="stat-amount income-text">{formatCurrency(summary.totalIncome, currency)}</div>
-        <div className="card-bottom">
-          <span className={`stat-pill ${summary.totalIncome > 0 ? 'positive' : 'neutral'}`}>
-            {summary.totalIncome > 0 ? 'Inbound income' : 'No income yet'}
           </span>
-          <span className="card-subtext">All-time total</span>
         </div>
-      </div>
+        <p className="dashboard-summary-value">{formatCurrency(summary.totalBalance, currency)}</p>
+        <p className="dashboard-summary-footnote">Across your accounts and recorded activity</p>
+      </article>
 
-      {/* 3. Total Expense Card */}
-      <div className="summary-card stat-card expense-card">
-        <div className="card-top">
-          <div className="stat-label">TOTAL EXPENSES</div>
-          <div className="stat-icon-wrapper expense">
-            <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <line x1="12" y1="5" x2="12" y2="19"></line>
-              <polyline points="19 12 12 19 5 12"></polyline>
-            </svg>
+      <article className="summary-card dashboard-summary-card">
+        <div className="dashboard-summary-card-heading">
+          <div>
+            <h2 className="dashboard-summary-label">Income</h2>
+            <p className="dashboard-summary-period">All time</p>
           </div>
-        </div>
-        <div className="stat-amount expense-text">{formatCurrency(summary.totalExpenses, currency)}</div>
-        <div className="card-bottom">
-          <span className="stat-pill neutral">
-            {summary.totalExpenses > 0 ? 'Recorded expenses' : 'No expenses yet'}
+          <span className="dashboard-summary-icon income" aria-hidden="true">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M12 19V5m-7 7 7-7 7 7" />
+            </svg>
           </span>
-          <span className="card-subtext">{summary.totalExpenses > 0 ? 'All-time spending' : 'Zero expenses'}</span>
         </div>
-      </div>
+        <p className="dashboard-summary-value income">{formatCurrency(summary.totalIncome, currency)}</p>
+        <p className="dashboard-summary-footnote">Total recorded income</p>
+      </article>
 
-      {/* 4. Savings Rate Card */}
-      <div className="summary-card stat-card savings-card">
-        <div className="card-top">
-          <div className="stat-label">SAVINGS RATE</div>
-          <div className="stat-icon-wrapper savings">
-            <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
-              <polyline points="17 21 17 13 7 13 7 21"></polyline>
-              <polyline points="7 3 7 8 15 8"></polyline>
-            </svg>
+      <article className="summary-card dashboard-summary-card">
+        <div className="dashboard-summary-card-heading">
+          <div>
+            <h2 className="dashboard-summary-label">Expenses</h2>
+            <p className="dashboard-summary-period">All time</p>
           </div>
+          <span className="dashboard-summary-icon expense" aria-hidden="true">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M12 5v14m7-7-7 7-7-7" />
+            </svg>
+          </span>
         </div>
-        <div className="stat-amount">{summary.savingsRate.toFixed(1)}%</div>
-        <div className="savings-progress-bar">
-          <div
-            className="savings-progress-fill"
-            style={{ width: `${Math.min(Math.max(summary.savingsRate, 0), 100)}%` }}
-          />
+        <p className="dashboard-summary-value expense">{formatCurrency(summary.totalExpenses, currency)}</p>
+        <p className="dashboard-summary-footnote">Total recorded expenses</p>
+      </article>
+
+      <article className="summary-card dashboard-summary-card">
+        <div className="dashboard-summary-card-heading">
+          <div>
+            <h2 className="dashboard-summary-label">Savings rate</h2>
+            <p className="dashboard-summary-period">All time</p>
+          </div>
+          <span className="dashboard-summary-icon savings" aria-hidden="true">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M12 2v20m7-16H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H5" />
+            </svg>
+          </span>
         </div>
-        <div className="card-bottom">
-          <span className="card-subtext">Goal target: 60%</span>
-        </div>
-      </div>
-    </div>
+        <p className="dashboard-summary-value savings">{summary.savingsRate.toFixed(1)}%</p>
+        <p className="dashboard-summary-footnote">Based on recorded income and expenses</p>
+      </article>
+    </section>
   );
 };
