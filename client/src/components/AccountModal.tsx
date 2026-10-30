@@ -119,11 +119,11 @@ export const AccountModal: React.FC<AccountModalProps> = ({
 
     return (
         <div className="modal-overlay">
-            <div ref={modalRef} className="modal-container" role="dialog" aria-modal="true">
+            <div ref={modalRef} className="modal-container acct-modal" role="dialog" aria-modal="true" aria-labelledby="account-modal-title">
                 {/* Header */}
                 <div className="modal-header">
                     <div>
-                        <h2 className="modal-title">
+                        <h2 className="modal-title" id="account-modal-title">
                             {existingAccount ? 'Edit Account' : 'Add New Account'}
                         </h2>
                         <p className="modal-subtitle">

@@ -152,7 +152,7 @@ export const AccountsPage: React.FC<AccountsPageProps> = ({
   };
 
   return (
-    <div className="transactions-section">
+    <div className="transactions-section accounts-page">
       {/* Page header */}
       <div className="section-header">
         <div className="section-title-wrap">
@@ -230,48 +230,47 @@ export const AccountsPage: React.FC<AccountsPageProps> = ({
         </div>
       )}
 
-      {/* Loading indicator for initial state */}
-      {isLoading && accounts.length === 0 && (
-        <div style={{ textAlign: 'center', padding: '32px 0', color: 'var(--text-subtle)' }}>
-          <p>Loading accounts from server...</p>
+      {isLoading && accounts.length === 0 ? (
+        <div className="acct-loading-state" role="status" aria-live="polite">
+          <span className="acct-loading-spinner" aria-hidden="true" />
+          <span>Loading your accounts…</span>
         </div>
-      )}
-
-      {/* Empty state */}
-      {!isLoading && accounts.length === 0 ? (
-        <div className="empty-state">
-          <div className="empty-state-icon">🏦</div>
-          <h3 className="empty-state-title">No Accounts Yet</h3>
-          <p className="empty-state-text">
-            Create your first account (Cash, Bank, Mobile Wallet, or Credit Card) to start tracking balances accurately.
-          </p>
+      ) : accounts.length === 0 ? (
+        <div className="acct-empty-state">
+          <div className="acct-empty-icon" aria-hidden="true">🏦</div>
+          <h3>No accounts yet</h3>
+          <p>Create your first account to keep balances and transactions organized in one place.</p>
           <button className="btn-primary" onClick={handleOpenAdd} id="empty-add-account-btn">
-            Create Your First Account
+            Create your first account
           </button>
         </div>
       ) : (
         <>
-          {/* ── Summary bar ── */}
-          <div className="acct-summary-bar">
+          <section className="acct-summary-bar" aria-label="Account overview">
             <div className="acct-summary-item">
-              <span className="acct-summary-label">Total Assets</span>
+              <span className="acct-summary-label">Total assets</span>
               <span className="acct-summary-val income-text">{formatCurrency(totalAssets, currency)}</span>
             </div>
             <div className="acct-summary-divider" />
             <div className="acct-summary-item">
-              <span className="acct-summary-label">Credit Debt</span>
+              <span className="acct-summary-label">Credit debt</span>
               <span className={`acct-summary-val ${totalCreditDebt < 0 ? 'expense-text' : ''}`}>
                 {formatCurrency(totalCreditDebt, currency)}
               </span>
             </div>
             <div className="acct-summary-divider" />
             <div className="acct-summary-item">
-              <span className="acct-summary-label">Net Worth</span>
+              <span className="acct-summary-label">Net worth</span>
               <span className={`acct-summary-val acct-net-worth ${netWorth >= 0 ? 'income-text' : 'expense-text'}`}>
                 {formatCurrency(netWorth, currency)}
               </span>
             </div>
-          </div>
+            <div className="acct-summary-divider" />
+            <div className="acct-summary-item">
+              <span className="acct-summary-label">Accounts</span>
+              <span className="acct-summary-val">{accounts.length}</span>
+            </div>
+          </section>
 
           {/* ── Accounts grid ── */}
           <div className="acct-grid">
@@ -282,7 +281,7 @@ export const AccountsPage: React.FC<AccountsPageProps> = ({
               const stats = getAccountTransactionStats(account.id, transactions);
 
               return (
-                <div key={account.id} className={`acct-card${isCredit ? ' acct-card-credit' : ''}`}>
+                <article key={account.id} className={`acct-card${isCredit ? ' acct-card-credit' : ''}`}>
                   {/* Card header */}
                   <div className="acct-card-header">
                     <div className="acct-info">
@@ -296,7 +295,7 @@ export const AccountsPage: React.FC<AccountsPageProps> = ({
                     </div>
                     <div className="acct-actions">
                       <button
-                        className="budget-action-btn"
+                        className="acct-action-btn"
                         onClick={() => handleOpenEdit(account)}
                         title={`Edit ${account.name}`}
                         aria-label={`Edit ${account.name}`}
@@ -308,7 +307,7 @@ export const AccountsPage: React.FC<AccountsPageProps> = ({
                         </svg>
                       </button>
                       <button
-                        className="budget-action-btn delete"
+                        className="acct-action-btn delete"
                         onClick={() => handleDeleteRequest(account.id)}
                         title={`Delete ${account.name}`}
                         aria-label={`Delete ${account.name}`}
@@ -325,7 +324,7 @@ export const AccountsPage: React.FC<AccountsPageProps> = ({
                   {/* Balance display */}
                   <div className="acct-balance-block">
                     <div className="acct-balance-header">
-                      <span className="acct-balance-label">Current Balance</span>
+                      <span className="acct-balance-label">Current balance</span>
                       <span className="acct-opening-subtext">
                         Opening: {formatCurrency(account.openingBalance, currency)}
                       </span>
@@ -333,15 +332,19 @@ export const AccountsPage: React.FC<AccountsPageProps> = ({
                     <span className={`acct-balance-amount ${balancePositive ? (isCredit ? '' : 'income-text') : 'expense-text'}`}>
                       {formatCurrency(balance, currency)}
                     </span>
+                    <div className="acct-currency-caption">
+                      <span className="acct-currency-pill">{account.currency || currency}</span>
+                      <span>Amounts shown in {currency}</span>
+                    </div>
                   </div>
 
                   {/* Footer: note + transaction count & date */}
                   <div className="acct-card-footer">
                     <div className="acct-footer-left">
                       {account.note ? (
-                        <span className="acct-note">{account.note}</span>
+                        <span className="acct-note" title={account.note}>{account.note}</span>
                       ) : (
-                        <span className="acct-note acct-note-empty">No note</span>
+                        <span className="acct-note acct-note-empty">No description provided</span>
                       )}
                       <span className="acct-tx-badge">
                         {stats.count === 0
@@ -351,14 +354,15 @@ export const AccountsPage: React.FC<AccountsPageProps> = ({
                     </div>
                     <span className="acct-created-date">Added {formatDate(account.createdAt)}</span>
                   </div>
-                </div>
+                </article>
               );
             })}
           </div>
 
           {/* Dynamic balance info note */}
           <p className="acct-disclaimer">
-            💡 Balances shown are dynamically calculated from opening balances plus all linked income, expense, and transfer transactions.
+            <span aria-hidden="true">ⓘ</span>
+            Balances are calculated from each account’s opening balance and linked income, expense, and transfer transactions.
           </p>
         </>
       )}

@@ -2575,50 +2575,50 @@
    ACCOUNTS SECTION
    ========================================================================== */
 
-/* Portfolio summary strip */
-.acct-summary-strip {
-  background-color: var(--bg-surface);
-  border-radius: var(--radius-lg);
+/* Portfolio overview */
+.accounts-page .acct-summary-bar {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  align-items: stretch;
+  padding: 18px 22px;
+  background: var(--bg-surface);
   border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
   box-shadow: var(--shadow-sm);
-  padding: 20px 28px;
-  display: flex;
-  align-items: center;
-  gap: 0;
-  overflow: hidden;
 }
 
-.acct-summary-item {
+.accounts-page .acct-summary-item {
+  min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  flex: 1;
-  padding: 0 20px;
+  justify-content: center;
+  gap: 7px;
+  padding: 2px 20px;
 }
 
-.acct-summary-item:first-child { padding-left: 0; }
-.acct-summary-item:last-child  { padding-right: 0; }
+.accounts-page .acct-summary-item:first-of-type { padding-left: 0; }
+.accounts-page .acct-summary-item:last-child { padding-right: 0; }
 
-.acct-summary-divider {
+.accounts-page .acct-summary-divider {
   width: 1px;
-  height: 40px;
-  background-color: var(--border-subtle);
-  flex-shrink: 0;
+  height: 44px;
+  align-self: center;
+  background: var(--color-divider);
 }
 
 .acct-summary-label {
-  font-size: 0.72rem;
-  font-weight: 700;
-  letter-spacing: 0.06em;
+  font-size: 0.76rem;
+  font-weight: 600;
   color: var(--text-muted);
-  text-transform: uppercase;
 }
 
 .acct-summary-val {
-  font-size: 1.35rem;
-  font-weight: 800;
-  letter-spacing: -0.02em;
+  font-size: clamp(1rem, 1.6vw, 1.35rem);
+  font-weight: 750;
+  letter-spacing: -0.025em;
   color: var(--text-main);
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
 }
 
 .acct-net-worth { font-size: 1.45rem; }
@@ -2649,8 +2649,8 @@
 }
 
 .acct-card.acct-card-credit {
-  border-color: rgba(79, 70, 229, 0.2);
-  background: linear-gradient(160deg, #ffffff 60%, #f8f8ff 100%);
+  border-color: var(--border-subtle);
+  background: var(--bg-surface);
 }
 
 .acct-card-header {
@@ -2658,6 +2658,13 @@
   align-items: flex-start;
   justify-content: space-between;
   gap: 8px;
+}
+
+.acct-actions {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex: 0 0 auto;
 }
 
 .acct-info {
@@ -2687,9 +2694,9 @@
   display: inline-block;
   font-size: 0.7rem;
   font-weight: 600;
-  color: var(--text-muted);
+  color: var(--text-secondary);
   background-color: var(--bg-surface-subtle);
-  padding: 2px 8px;
+  padding: 4px 9px;
   border-radius: 9999px;
   width: fit-content;
 }
@@ -2706,17 +2713,17 @@
   flex-shrink: 0;
 }
 
-.acct-badge-cash    { background-color: #ecfdf5; }
-.acct-badge-bank    { background-color: #eef2ff; }
-.acct-badge-wallet  { background-color: #fdf4ff; }
-.acct-badge-credit  { background-color: #fff1f2; }
+.accounts-page .acct-badge-cash { background: var(--color-income-soft); }
+.accounts-page .acct-badge-bank { background: var(--primary-light); }
+.accounts-page .acct-badge-wallet { background: var(--color-savings-soft); }
+.accounts-page .acct-badge-credit { background: var(--color-expense-soft); }
 
 /* Balance block */
 .acct-balance-block {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  padding: 16px 0;
+  gap: 7px;
+  padding: 18px 0;
   border-top: 1px solid var(--border-subtle);
   border-bottom: 1px solid var(--border-subtle);
 }
@@ -2743,16 +2750,38 @@
 }
 
 .acct-balance-amount {
-  font-size: 1.65rem;
-  font-weight: 800;
+  font-size: clamp(1.45rem, 2.5vw, 1.9rem);
+  font-weight: 750;
   letter-spacing: -0.025em;
   color: var(--text-main);
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+.acct-currency-caption {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-dim);
+  font-size: 0.72rem;
+}
+
+.acct-currency-pill {
+  display: inline-flex;
+  padding: 2px 7px;
+  color: var(--text-secondary);
+  background: var(--bg-surface-subtle);
+  border: 1px solid var(--border-subtle);
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
 }
 
 /* Card footer */
 .acct-card-footer {
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   justify-content: space-between;
   gap: 8px;
 }
@@ -2766,8 +2795,8 @@
 
 .acct-tx-badge {
   font-size: 0.72rem;
-  color: var(--text-dim);
-  font-weight: 500;
+  color: var(--text-muted);
+  font-weight: 600;
 }
 
 .acct-note {
@@ -2792,10 +2821,10 @@
 .acct-confirm-warning {
   margin-top: 10px;
   font-size: 0.85rem;
-  color: var(--text-muted);
+  color: var(--color-warning);
   line-height: 1.4;
-  background-color: #fffbeb;
-  border: 1px solid #fef3c7;
+  background-color: var(--color-warning-soft);
+  border: 1px solid var(--border-subtle);
   padding: 8px 12px;
   border-radius: var(--radius-sm);
 }
@@ -2809,6 +2838,127 @@
   border-radius: var(--radius-md);
   border: 1px dashed var(--border-subtle);
   line-height: 1.5;
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+}
+
+.acct-disclaimer > span { color: var(--primary); font-weight: 700; }
+
+.acct-action-btn {
+  display: inline-flex;
+  width: 38px;
+  height: 38px;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.acct-action-btn:hover {
+  color: var(--primary);
+  background: var(--primary-light);
+  border-color: var(--border-focus);
+}
+
+.acct-action-btn.delete:hover {
+  color: var(--danger);
+  background: var(--danger-light);
+  border-color: var(--danger-light);
+}
+
+.acct-loading-state,
+.acct-empty-state {
+  min-height: 270px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 34px 24px;
+  color: var(--text-muted);
+  text-align: center;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+}
+
+.acct-loading-state { flex-direction: row; min-height: 170px; }
+
+.acct-loading-spinner {
+  width: 24px;
+  height: 24px;
+  border: 2px solid var(--border-subtle);
+  border-top-color: var(--primary);
+  border-radius: 50%;
+  animation: auth-spin 0.8s linear infinite;
+}
+
+.acct-empty-icon {
+  width: 58px;
+  height: 58px;
+  display: grid;
+  place-items: center;
+  margin-bottom: 4px;
+  color: var(--primary);
+  background: var(--primary-light);
+  border-radius: 18px;
+  font-size: 1.8rem;
+}
+
+.acct-empty-state h3 {
+  color: var(--text-main);
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+
+.acct-empty-state p {
+  max-width: 420px;
+  margin-bottom: 4px;
+  font-size: 0.88rem;
+  line-height: 1.55;
+}
+
+.acct-modal {
+  width: min(100%, 540px);
+  max-height: min(90vh, 760px);
+  overflow-y: auto;
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-xl);
+}
+
+.acct-modal .modal-form { gap: 18px; }
+.acct-modal .form-input { min-height: 46px; }
+.acct-modal .modal-actions { padding-top: 8px; }
+
+.accounts-page .modal-error-alert {
+  margin: 0 0 4px;
+}
+
+@media (max-width: 900px) {
+  .accounts-page .acct-summary-bar { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0; }
+  .accounts-page .acct-summary-divider { display: none; }
+  .accounts-page .acct-summary-item { min-height: 72px; padding: 10px 8px; }
+}
+
+@media (max-width: 600px) {
+  .accounts-page .acct-summary-bar { padding: 12px 16px; }
+  .accounts-page .acct-summary-item { min-height: 68px; padding-inline: 8px; }
+  .acct-grid { grid-template-columns: minmax(0, 1fr); gap: 14px; }
+  .acct-card { padding: 18px; gap: 15px; }
+  .acct-card-footer { align-items: flex-start; flex-direction: column; }
+  .acct-created-date { white-space: normal; }
+  .acct-modal { padding-bottom: 18px; }
+  .acct-modal .modal-actions { gap: 10px; }
+}
+
+@media (min-width: 601px) and (max-width: 900px) {
+  .accounts-page .acct-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
 /* Account type selector grid (modal) */
