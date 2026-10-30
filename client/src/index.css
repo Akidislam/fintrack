@@ -1,55 +1,152 @@
 :root {
+  color-scheme: light;
+
+  /* Typography */
   --font-family: 'Plus Jakarta Sans', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  
-  /* Brand colors */
-  --primary: #4f46e5;
-  --primary-hover: #4338ca;
-  --primary-light: #eef2ff;
-  --primary-glow: rgba(79, 70, 229, 0.15);
-  
-  /* Status colors */
-  --success: #10b981;
-  --success-light: #ecfdf5;
-  --success-text: #047857;
-  --danger: #f43f5e;
-  --danger-light: #fff1f2;
-  --danger-text: #be123c;
-  --warning: #f59e0b;
-  --warning-light: #fef3c7;
-  
-  /* Neutral surface colors */
-  --bg-app: #f8fafc;
-  --bg-surface: #ffffff;
-  --bg-surface-subtle: #f1f5f9;
-  --bg-surface-hover: #f8fafc;
-  
-  /* Borders */
-  --border-subtle: #e2e8f0;
-  --border-focus: #c7d2fe;
-  
-  /* Text */
-  --text-main: #0f172a;
-  --text-muted: #64748b;
-  --text-dim: #94a3b8;
-  --text-inverse: #ffffff;
-  
-  /* Shadows */
-  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.04);
-  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
-  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.06), 0 4px 6px -4px rgba(0, 0, 0, 0.05);
-  --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.08), 0 8px 10px -6px rgba(0, 0, 0, 0.04);
-  
-  /* Radii */
+  --font-size-xs: 0.75rem;
+  --font-size-sm: 0.875rem;
+  --font-size-md: 1rem;
+  --font-size-lg: 1.125rem;
+  --font-size-xl: 1.5rem;
+
+  /* Brand and interaction */
+  --color-primary: #2563c7;
+  --color-primary-hover: #1d4fa3;
+  --color-primary-active: #183f83;
+  --color-primary-soft: #eaf2ff;
+  --color-primary-strong: #174a9c;
+  --color-secondary: #eaf2ff;
+  --color-secondary-hover: #dceaff;
+  --color-focus-ring: rgba(37, 99, 199, 0.22);
+
+  /* Surfaces, text, and borders */
+  --color-page: #f4f7fb;
+  --color-surface: #ffffff;
+  --color-surface-raised: #ffffff;
+  --color-surface-subtle: #f1f5fa;
+  --color-surface-hover: #f5f8fc;
+  --color-input: #ffffff;
+  --color-text: #172b4d;
+  --color-text-secondary: #40536f;
+  --color-text-muted: #697b93;
+  --color-text-dim: #8998ab;
+  --color-text-inverse: #ffffff;
+  --color-border: #dce4ee;
+  --color-divider: #e7edf4;
+
+  /* Financial status colors */
+  --color-income: #14804a;
+  --color-income-soft: #e8f6ee;
+  --color-expense: #c2414b;
+  --color-expense-soft: #fff0f0;
+  --color-savings: #087e8b;
+  --color-savings-soft: #e7f5f6;
+  --color-success: #14804a;
+  --color-success-soft: #e8f6ee;
+  --color-success-text: #12633d;
+  --color-warning: #a76408;
+  --color-warning-soft: #fff4dc;
+  --color-error: #c2414b;
+  --color-error-soft: #fff0f0;
+  --color-error-text: #a52e39;
+
+  /* Shadows, radii, spacing */
+  --shadow-sm: 0 1px 2px rgba(20, 39, 66, 0.05);
+  --shadow-md: 0 4px 12px rgba(20, 39, 66, 0.07);
+  --shadow-lg: 0 12px 28px rgba(20, 39, 66, 0.10);
+  --shadow-xl: 0 20px 44px rgba(20, 39, 66, 0.14);
   --radius-sm: 6px;
   --radius-md: 10px;
   --radius-lg: 16px;
-  --radius-xl: 24px;
+  --radius-xl: 22px;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+
+  /* Existing component token aliases */
+  --primary: var(--color-primary);
+  --primary-hover: var(--color-primary-hover);
+  --primary-light: var(--color-primary-soft);
+  --primary-glow: var(--color-focus-ring);
+  --success: var(--color-success);
+  --success-light: var(--color-success-soft);
+  --success-text: var(--color-success-text);
+  --danger: var(--color-error);
+  --danger-light: var(--color-error-soft);
+  --danger-text: var(--color-error-text);
+  --warning: var(--color-warning);
+  --warning-light: var(--color-warning-soft);
+  --bg-app: var(--color-page);
+  --bg-surface: var(--color-surface);
+  --bg-surface-subtle: var(--color-surface-subtle);
+  --bg-surface-hover: var(--color-surface-hover);
+  --border-subtle: var(--color-border);
+  --border-focus: #a9c6f2;
+  --text-main: var(--color-text);
+  --text-muted: var(--color-text-muted);
+  --text-dim: var(--color-text-dim);
+  --text-inverse: var(--color-text-inverse);
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --color-primary: #7eafff;
+  --color-primary-hover: #9bc1ff;
+  --color-primary-active: #b5d1ff;
+  --color-primary-soft: #1e3555;
+  --color-primary-strong: #a8caff;
+  --color-secondary: #1e3555;
+  --color-secondary-hover: #28466e;
+  --color-focus-ring: rgba(126, 175, 255, 0.28);
+
+  --color-page: #101a2a;
+  --color-surface: #172438;
+  --color-surface-raised: #1c2b41;
+  --color-surface-subtle: #202f45;
+  --color-surface-hover: #263750;
+  --color-input: #142136;
+  --color-text: #e7eef8;
+  --color-text-secondary: #c2d0e2;
+  --color-text-muted: #9aabc1;
+  --color-text-dim: #8294ad;
+  --color-text-inverse: #102039;
+  --color-border: #2c3d54;
+  --color-divider: #26374d;
+
+  --color-income: #62c994;
+  --color-income-soft: #1c3c35;
+  --color-expense: #f08b91;
+  --color-expense-soft: #452b38;
+  --color-savings: #65c6ce;
+  --color-savings-soft: #1c3d48;
+  --color-success: #62c994;
+  --color-success-soft: #1c3c35;
+  --color-success-text: #94e0b6;
+  --color-warning: #e8b65d;
+  --color-warning-soft: #433a2c;
+  --color-error: #f08b91;
+  --color-error-soft: #452b38;
+  --color-error-text: #ffb3b7;
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.18);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.22);
+  --shadow-lg: 0 12px 28px rgba(0, 0, 0, 0.28);
+  --shadow-xl: 0 20px 44px rgba(0, 0, 0, 0.34);
+  --border-focus: #5377a8;
 }
 
 * {
   margin: 0;
   padding: 0;
   box-sizing: border-box;
+}
+
+html {
+  background: var(--color-page);
 }
 
 body {
@@ -59,13 +156,28 @@ body {
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  transition: background-color 0.18s ease, color 0.18s ease;
 }
 
 button, input, select, textarea {
   font-family: inherit;
 }
 
+button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible, a:focus-visible {
+  outline: 3px solid var(--color-focus-ring);
+  outline-offset: 2px;
+}
+
 a {
   text-decoration: none;
   color: inherit;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }

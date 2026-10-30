@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import type { User } from '../types';
 
 interface SidebarProps {
@@ -8,6 +8,7 @@ interface SidebarProps {
   setActiveNav: (nav: string) => void;
   currentUser?: User | null;
   onLogout?: () => void;
+  transactionCount?: number;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -17,7 +18,17 @@ export const Sidebar: React.FC<SidebarProps> = ({
   setActiveNav,
   currentUser,
   onLogout,
+  transactionCount,
 }) => {
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
+
   const navItems = [
     {
       id: 'dashboard',
@@ -108,7 +119,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       {/* Mobile backdrop */}
       {isOpen && <div className="sidebar-backdrop" onClick={onClose} aria-hidden="true" />}
 
-      <aside className={`sidebar ${isOpen ? 'sidebar-open' : ''}`}>
+      <aside className={`sidebar ${isOpen ? 'sidebar-open' : ''}`} aria-label="Main sidebar">
         <div className="sidebar-header">
           <button
             type="button"
@@ -117,7 +128,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
               setActiveNav('dashboard');
               onClose();
             }}
-            style={{ cursor: 'pointer', background: 'none', border: 'none', padding: 0, font: 'inherit', textAlign: 'left' }}
             title="FinTrack Dashboard"
           >
             <div className="brand-icon">
@@ -137,7 +147,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </button>
         </div>
 
-        <nav className="sidebar-nav">
+        <nav className="sidebar-nav" aria-label="Main navigation">
           <div className="nav-group-title">MAIN MENU</div>
           <ul className="nav-list">
             {navItems.map((item) => {
@@ -146,6 +156,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 <li key={item.id}>
                   <button
                     className={`nav-link ${isActive ? 'nav-link-active' : ''}`}
+                    aria-current={isActive ? 'page' : undefined}
                     onClick={() => {
                       setActiveNav(item.id);
                       onClose();
@@ -153,7 +164,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   >
                     <span className="nav-icon">{item.icon}</span>
                     <span className="nav-text">{item.label}</span>
-                    {item.id === 'transactions' && <span className="nav-badge">7</span>}
+                    {item.id === 'transactions' && transactionCount !== undefined && (
+                      <span className="nav-badge" aria-label={`${transactionCount} transactions`}>{transactionCount}</span>
+                    )}
                   </button>
                 </li>
               );
