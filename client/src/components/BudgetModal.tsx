@@ -26,6 +26,7 @@ export const BudgetModal: React.FC<BudgetModalProps> = ({
   const [monthlyLimit, setMonthlyLimit] = useState('');
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const modalRef = useRef<HTMLDivElement>(null);
 
   const baseExpenseCategories = useMemo(() => {
     if (categories && categories.length > 0) {
@@ -61,8 +62,6 @@ export const BudgetModal: React.FC<BudgetModalProps> = ({
     }
   }, [existingBudget, configuredCategories, isOpen, baseExpenseCategories]);
 
-  const modalRef = useRef<HTMLDivElement>(null);
-
   // Handle ESC key to close modal
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -84,6 +83,41 @@ export const BudgetModal: React.FC<BudgetModalProps> = ({
     document.addEventListener('mousedown', handleMouseDown);
     return () => document.removeEventListener('mousedown', handleMouseDown);
   }, [isOpen, onClose]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const dialog = modalRef.current;
+    const previousFocus = document.activeElement instanceof HTMLElement
+      ? document.activeElement
+      : null;
+    const getFocusable = () => dialog?.querySelectorAll<HTMLElement>(
+      'button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [href], [tabindex]:not([tabindex="-1"])'
+    );
+    getFocusable()?.[0]?.focus();
+
+    const handleTabKey = (event: KeyboardEvent) => {
+      if (event.key !== 'Tab' || !dialog) return;
+      const focusable = getFocusable();
+      if (!focusable?.length) {
+        event.preventDefault();
+        dialog.focus();
+      } else if (document.activeElement === dialog) {
+        event.preventDefault();
+        (event.shiftKey ? focusable[focusable.length - 1] : focusable[0]).focus();
+      } else if (event.shiftKey && document.activeElement === focusable[0]) {
+        event.preventDefault();
+        focusable[focusable.length - 1].focus();
+      } else if (!event.shiftKey && document.activeElement === focusable[focusable.length - 1]) {
+        event.preventDefault();
+        focusable[0].focus();
+      }
+    };
+    window.addEventListener('keydown', handleTabKey);
+    return () => {
+      window.removeEventListener('keydown', handleTabKey);
+      if (previousFocus?.isConnected) previousFocus.focus();
+    };
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -124,11 +158,19 @@ export const BudgetModal: React.FC<BudgetModalProps> = ({
   if (allCategoriesConfigured) {
     return (
       <div className="modal-overlay">
-        <div ref={modalRef} className="modal-container" role="dialog" aria-modal="true">
+        <div
+          ref={modalRef}
+          className="modal-container budget-modal budget-all-budgeted-modal"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="budget-modal-title"
+          aria-describedby="budget-modal-description"
+          tabIndex={-1}
+        >
           <div className="modal-header">
             <div>
-              <h2 className="modal-title">All Categories Budgeted</h2>
-              <p className="modal-subtitle">
+              <h2 className="modal-title" id="budget-modal-title">All Categories Budgeted</h2>
+              <p className="modal-subtitle" id="budget-modal-description">
                 All {baseExpenseCategories.length} expense categories already have monthly budgets
               </p>
             </div>
@@ -169,13 +211,21 @@ export const BudgetModal: React.FC<BudgetModalProps> = ({
 
   return (
     <div className="modal-overlay">
-      <div ref={modalRef} className="modal-container" role="dialog" aria-modal="true">
+      <div
+        ref={modalRef}
+        className="modal-container budget-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="budget-modal-title"
+        aria-describedby="budget-modal-description"
+        tabIndex={-1}
+      >
         <div className="modal-header">
           <div>
-            <h2 className="modal-title">
+            <h2 className="modal-title" id="budget-modal-title">
               {existingBudget ? 'Edit Budget' : 'Set Monthly Budget'}
             </h2>
-            <p className="modal-subtitle">
+            <p className="modal-subtitle" id="budget-modal-description">
               {existingBudget
                 ? `Update monthly limit for ${existingBudget.category}`
                 : 'Set a monthly spending limit for an expense category'}
@@ -186,7 +236,7 @@ export const BudgetModal: React.FC<BudgetModalProps> = ({
           </button>
         </div>
 
-        {error && <div className="modal-error-alert">{error}</div>}
+        {error && <div className="modal-error-alert" role="alert">{error}</div>}
 
         <form onSubmit={handleSubmit} className="modal-form">
           <div className="form-group">

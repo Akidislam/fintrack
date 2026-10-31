@@ -111,14 +111,18 @@ export const BudgetsPage: React.FC<BudgetsPageProps> = ({
     setIsModalOpen(true);
   };
 
+  const atLimit = (budget: CategoryBudget, spent: number) =>
+    budget.monthlyLimit > 0 && spent === budget.monthlyLimit;
+
   return (
-    <div className="transactions-section">
-      <div className="section-header">
+    <div className="transactions-section budgets-page">
+      <div className="section-header budgets-page-header">
         <div className="section-title-wrap">
           <h2 className="section-title">Monthly Budgets</h2>
-          <span className="section-subtitle">
-            {currentMonthLabel} • {configuredCategories.length} of {baseExpenseCategories.length} expense categories budgeted
-          </span>
+          <div className="budgets-page-summary">
+            <span className="budgets-month-chip">{currentMonthLabel}</span>
+            <span>{configuredCategories.length} of {baseExpenseCategories.length} expense categories budgeted</span>
+          </div>
         </div>
 
         <button
@@ -142,22 +146,12 @@ export const BudgetsPage: React.FC<BudgetsPageProps> = ({
 
       {/* Global Error Banner */}
       {error && (
-        <div
-          className="modal-error-alert"
-          style={{
-            margin: '0 0 16px 0',
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-          }}
-          role="alert"
-        >
+        <div className="budgets-page-error" role="alert" aria-live="assertive">
           <span>⚠️ {error}</span>
-          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+          <div className="budgets-error-actions">
             {onRetry && (
               <button
                 className="btn-secondary"
-                style={{ padding: '2px 8px', fontSize: '0.75rem' }}
                 onClick={onRetry}
               >
                 Retry
@@ -165,13 +159,7 @@ export const BudgetsPage: React.FC<BudgetsPageProps> = ({
             )}
             {onClearError && (
               <button
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  cursor: 'pointer',
-                  fontSize: '1rem',
-                  color: 'inherit',
-                }}
+                className="budgets-error-dismiss"
                 onClick={onClearError}
                 aria-label="Dismiss error"
               >
@@ -184,12 +172,13 @@ export const BudgetsPage: React.FC<BudgetsPageProps> = ({
 
       {/* Loading indicator for initial state */}
       {isLoading && budgets.length === 0 ? (
-        <div style={{ textAlign: 'center', padding: '48px 0', color: 'var(--text-subtle)' }}>
-          <p>Loading budgets from server...</p>
+        <div className="budgets-loading-state" role="status" aria-live="polite">
+          <span className="budgets-loading-spinner" aria-hidden="true" />
+          <span>Loading your budgets…</span>
         </div>
       ) : budgets.length === 0 ? (
-        <div className="empty-state">
-          <div className="empty-icon">🎯</div>
+        <div className="empty-state budgets-empty-state">
+          <div className="empty-icon" aria-hidden="true">🎯</div>
           <h3 className="empty-title">No budgets configured</h3>
           <p className="empty-desc">
             You haven't set any category budgets yet. Create a monthly spending budget to track and control your expenses.
@@ -207,6 +196,8 @@ export const BudgetsPage: React.FC<BudgetsPageProps> = ({
               const percentUsed =
                 budget.monthlyLimit > 0 ? (spent / budget.monthlyLimit) * 100 : 0;
               const isOverBudget = budget.monthlyLimit > 0 && spent >= budget.monthlyLimit;
+              const isAtLimit = atLimit(budget, spent);
+              const hasNoLimit = budget.monthlyLimit <= 0;
               const isNearBudget = !isOverBudget && percentUsed >= 80;
               const overage = Math.round((spent - budget.monthlyLimit + Number.EPSILON) * 100) / 100;
 
@@ -243,6 +234,7 @@ export const BudgetsPage: React.FC<BudgetsPageProps> = ({
                           <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
                           <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
                         </svg>
+                        <span className="budget-action-label">Edit</span>
                       </button>
                       <button
                         className="budget-action-btn delete"
@@ -254,6 +246,7 @@ export const BudgetsPage: React.FC<BudgetsPageProps> = ({
                           <polyline points="3 6 5 6 21 6"></polyline>
                           <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
                         </svg>
+                        <span className="budget-action-label">Delete</span>
                       </button>
                     </div>
                   </div>
@@ -285,7 +278,15 @@ export const BudgetsPage: React.FC<BudgetsPageProps> = ({
                   </div>
 
                   <div className="budget-progress-container">
-                    <div className="budget-progress-bar">
+                    <div
+                      className="budget-progress-bar"
+                      role="progressbar"
+                      aria-label={`${budget.category} budget usage`}
+                      aria-valuemin={0}
+                      aria-valuemax={100}
+                      aria-valuenow={Math.min(100, Math.max(0, percentUsed))}
+                      aria-valuetext={`${percentUsed.toFixed(1)}% used`}
+                    >
                       <div
                         className={`budget-progress-fill ${
                           isOverBudget
@@ -309,7 +310,11 @@ export const BudgetsPage: React.FC<BudgetsPageProps> = ({
                           : 'normal'
                       }`}
                     >
-                      {isOverBudget
+                      {hasNoLimit
+                        ? 'No limit set'
+                        : isAtLimit
+                        ? 'Limit reached'
+                        : isOverBudget
                         ? `⚠️ Exceeded by ${formatCurrency(overage, currency)}`
                         : isNearBudget
                         ? `${formatCurrency(remaining, currency)} left — near limit`
@@ -329,8 +334,8 @@ export const BudgetsPage: React.FC<BudgetsPageProps> = ({
               <span className="banner-icon">🎯</span>
               <div className="banner-content">
                 <strong>All {baseExpenseCategories.length} expense categories are budgeted</strong>
-                <p>
-                  Every expense category has an active monthly limit. Click the edit icon (✏️) on any budget card to adjust its limit, or delete a budget if you want to remove it.
+                  <p>
+                  Every expense category has an active monthly limit. Use the Edit action on a budget card to adjust its limit, or Delete to remove a budget.
                 </p>
               </div>
             </div>
