@@ -775,6 +775,12 @@ export function App() {
               budgetsCount={budgets.length}
               accountsCount={accounts.length}
               onResetData={handleResetData}
+              transactionsLoading={transactionsLoading}
+              transactionsError={transactionsError}
+              budgetsLoading={budgetsLoading}
+              budgetsError={budgetsError}
+              accountsLoading={accountsLoading}
+              accountsError={accountsError}
             />
           )}
 
@@ -783,9 +789,6 @@ export function App() {
             <span className="footer-note">
               FinTrack v1.0 • Running client on Vite + React + TypeScript
             </span>
-            <button className="reset-data-btn" onClick={handleResetData}>
-              Clear Local Data
-            </button>
           </footer>
         </div>
       </main>
