@@ -7,6 +7,10 @@ interface AnalyticsPageProps {
   transactions: Transaction[];
   categories?: Category[];
   currency?: SupportedCurrency;
+  isLoading?: boolean;
+  error?: string | null;
+  onRetry?: () => void;
+  onClearError?: () => void;
 }
 
 interface MonthlyData {
@@ -21,6 +25,10 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = ({
   transactions,
   categories,
   currency = 'USD',
+  isLoading = false,
+  error = null,
+  onRetry,
+  onClearError,
 }) => {
 
   const getCategoryIcon = (category: string) => {
@@ -138,7 +146,7 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = ({
     });
 
   return (
-    <div className="transactions-section">
+    <div className="transactions-section analytics-page">
       {/* Header */}
       <div className="section-header">
         <div className="section-title-wrap">
@@ -149,10 +157,40 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = ({
         </div>
       </div>
 
-      {/* 3 Overview KPI Cards */}
+      {error && transactions.length > 0 && (
+        <div className="analytics-page-error" role="alert" aria-live="assertive">
+          <span>{error}</span>
+          <div className="analytics-error-actions">
+            {onRetry && <button className="btn-secondary" onClick={onRetry}>Retry</button>}
+            {onClearError && (
+              <button className="analytics-error-dismiss" onClick={onClearError} aria-label="Dismiss analytics error">
+                ✕
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
+      {isLoading && transactions.length === 0 ? (
+        <div className="analytics-loading-state" role="status" aria-live="polite">
+          <span className="analytics-loading-spinner" aria-hidden="true" />
+          <span>Loading financial reports…</span>
+        </div>
+      ) : error && transactions.length === 0 ? (
+        <div className="analytics-load-error" role="alert">
+          <h3>Reports are unavailable</h3>
+          <p>{error}</p>
+          <div className="analytics-load-error-actions">
+            {onRetry && <button className="btn-primary" onClick={onRetry}>Retry loading reports</button>}
+            {onClearError && <button className="btn-secondary" onClick={onClearError}>Dismiss</button>}
+          </div>
+        </div>
+      ) : (
+      <>
+      {/* Current-month financial KPIs */}
       <div className="analytics-kpi-grid">
         {/* Current Month Income */}
-        <div className="summary-card stat-card income-card">
+        <div className="summary-card stat-card income-card analytics-kpi-card">
           <div className="card-top">
             <div className="stat-label">CURRENT MONTH INFLOW</div>
             <div className="stat-icon-wrapper income">
@@ -172,7 +210,7 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = ({
         </div>
 
         {/* Current Month Expenses */}
-        <div className="summary-card stat-card expense-card">
+        <div className="summary-card stat-card expense-card analytics-kpi-card">
           <div className="card-top">
             <div className="stat-label">CURRENT MONTH OUTFLOW</div>
             <div className="stat-icon-wrapper expense">
@@ -192,7 +230,7 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = ({
         </div>
 
         {/* Current Month Net Flow */}
-        <div className="summary-card stat-card">
+        <div className="summary-card stat-card analytics-kpi-card">
           <div className="card-top">
             <div className="stat-label">NET CASH FLOW</div>
             <div className={`stat-icon-wrapper ${isPositiveNet ? 'income' : 'expense'}`}>
@@ -214,9 +252,49 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = ({
           </div>
           <div className="card-bottom">
             <span className={`stat-pill ${isPositiveNet ? 'positive' : 'neutral'}`}>
-              {currentMonthSavingsRate.toFixed(1)}% savings rate
+              {isPositiveNet ? 'Positive cash flow' : 'Negative cash flow'}
             </span>
             <span className="card-subtext">Income minus expenses</span>
+          </div>
+        </div>
+
+        {/* Current-month total transaction count */}
+        <div className="summary-card stat-card analytics-kpi-card">
+          <div className="card-top">
+            <div className="stat-label">CURRENT MONTH TRANSACTIONS</div>
+            <div className="stat-icon-wrapper analytics-count-icon">
+              <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M8 6h13M8 12h13M8 18h13" />
+                <path d="M3 6h.01M3 12h.01M3 18h.01" />
+              </svg>
+            </div>
+          </div>
+          <div className="stat-amount">{currentMonthTransactions.length}</div>
+          <div className="card-bottom">
+            <span className="stat-pill neutral">
+              {currentMonthTransactions.length === 1 ? 'transaction' : 'transactions'}
+            </span>
+            <span className="card-subtext">All types, including transfers</span>
+          </div>
+        </div>
+
+        {/* Existing current-month savings rate */}
+        <div className="summary-card stat-card analytics-kpi-card">
+          <div className="card-top">
+            <div className="stat-label">SAVINGS RATE</div>
+            <div className={`stat-icon-wrapper ${isPositiveNet ? 'income' : 'expense'}`}>
+              <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="9" />
+                <path d="M12 7v5l3 2" />
+              </svg>
+            </div>
+          </div>
+          <div className={`stat-amount ${isPositiveNet ? 'income-text' : 'expense-text'}`}>
+            {currentMonthSavingsRate.toFixed(1)}%
+          </div>
+          <div className="card-bottom">
+            <span className={`stat-pill ${isPositiveNet ? 'positive' : 'neutral'}`}>This month</span>
+            <span className="card-subtext">Net cash flow as a share of income</span>
           </div>
         </div>
       </div>
@@ -239,7 +317,7 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = ({
 
           {categoryBreakdown.length === 0 ? (
             <div className="analytics-empty">
-              <span className="empty-icon">📊</span>
+              <span className="empty-icon" aria-hidden="true">📊</span>
               <p className="empty-title">No expenses this month</p>
               <p className="empty-desc">
                 There are no expense transactions recorded for the current calendar month.
@@ -251,7 +329,7 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = ({
                 <div key={item.category} className="category-breakdown-row">
                   <div className="category-row-header">
                     <div className="category-name-wrap">
-                      <span className="category-emoji-badge">
+                      <span className="category-emoji-badge" aria-hidden="true">
                         {getCategoryIcon(item.category)}
                       </span>
                       <span className="category-row-name">{item.category}</span>
@@ -261,7 +339,15 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = ({
                       <span className="category-row-pct">{item.percentage.toFixed(1)}%</span>
                     </div>
                   </div>
-                  <div className="category-bar-track">
+                  <div
+                    className="category-bar-track"
+                    role="progressbar"
+                    aria-label={`${item.category} share of current-month expenses`}
+                    aria-valuemin={0}
+                    aria-valuemax={100}
+                    aria-valuenow={Math.min(100, Math.max(0, item.percentage))}
+                    aria-valuetext={`${item.percentage.toFixed(1)}% of current-month expenses`}
+                  >
                     <div
                       className="category-bar-fill"
                       style={{ width: `${Math.max(item.percentage, 2)}%` }}
@@ -289,7 +375,7 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = ({
 
           {monthlyHistory.length === 0 ? (
             <div className="analytics-empty">
-              <span className="empty-icon">📅</span>
+              <span className="empty-icon" aria-hidden="true">📅</span>
               <p className="empty-title">No transaction history</p>
               <p className="empty-desc">
                 No transactions found to generate monthly comparison data.
@@ -319,7 +405,15 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = ({
                           <span className="comparison-dot income-dot" />
                           <span className="comparison-type-label">Income</span>
                         </div>
-                        <div className="comparison-bar-track">
+                        <div
+                          className="comparison-bar-track"
+                          role="progressbar"
+                          aria-label={`${month.label} income compared with monthly income and expenses`}
+                          aria-valuemin={0}
+                          aria-valuemax={100}
+                          aria-valuenow={incomePct}
+                          aria-valuetext={`${formatCurrency(month.income, currency)} income; ${incomePct.toFixed(1)}% of the higher monthly value`}
+                        >
                           <div
                             className="comparison-bar-fill income-fill"
                             style={{ width: `${Math.max(incomePct, 2)}%` }}
@@ -336,7 +430,15 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = ({
                           <span className="comparison-dot expense-dot" />
                           <span className="comparison-type-label">Expenses</span>
                         </div>
-                        <div className="comparison-bar-track">
+                        <div
+                          className="comparison-bar-track"
+                          role="progressbar"
+                          aria-label={`${month.label} expenses compared with monthly income and expenses`}
+                          aria-valuemin={0}
+                          aria-valuemax={100}
+                          aria-valuenow={expensePct}
+                          aria-valuetext={`${formatCurrency(month.expenses, currency)} expenses; ${expensePct.toFixed(1)}% of the higher monthly value`}
+                        >
                           <div
                             className="comparison-bar-fill expense-fill"
                             style={{ width: `${Math.max(expensePct, 2)}%` }}
@@ -354,6 +456,8 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = ({
           )}
         </div>
       </div>
+      </>
+      )}
     </div>
   );
 };

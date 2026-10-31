@@ -756,7 +756,15 @@ export function App() {
           )}
 
           {activeNav === 'analytics' && (
-            <AnalyticsPage transactions={transactions} categories={categories} currency={currency} />
+            <AnalyticsPage
+              transactions={transactions}
+              categories={categories}
+              currency={currency}
+              isLoading={transactionsLoading}
+              error={transactionsError}
+              onRetry={loadTransactions}
+              onClearError={() => setTransactionsError(null)}
+            />
           )}
 
           {activeNav === 'settings' && (
