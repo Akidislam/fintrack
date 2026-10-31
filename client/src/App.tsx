@@ -243,8 +243,8 @@ export function App() {
       analytics: 'Analytics | FinTrack',
       settings: 'Settings | FinTrack',
     };
-    document.title = pageTitles[activeNav] || 'FinTrack';
-  }, [activeNav]);
+    document.title = currentUser ? pageTitles[activeNav] || 'FinTrack' : 'Sign in | FinTrack';
+  }, [activeNav, currentUser]);
 
   // Sync currency preference to localStorage
   useEffect(() => {

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { api } from '../services/api';
 import type { SupportedCurrency, User } from '../types';
 
@@ -22,46 +22,60 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onAuthSuccess }) => {
   const [password, setPassword] = useState('');
   const [currency, setCurrency] = useState<SupportedCurrency>('USD');
   const [error, setError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const firstFieldRef = useRef<HTMLInputElement>(null);
+  const previousModeRef = useRef(mode);
 
   const isLogin = mode === 'login';
+
+  useEffect(() => {
+    if (previousModeRef.current !== mode) {
+      firstFieldRef.current?.focus();
+      previousModeRef.current = mode;
+    }
+  }, [mode]);
 
   const handleToggleMode = () => {
     setMode((prev) => (prev === 'login' ? 'register' : 'login'));
     setError(null);
+    setFieldErrors({});
+    setShowPassword(false);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    setFieldErrors({});
 
     const cleanEmail = email.trim();
     if (!cleanEmail) {
-      setError('Email address is required.');
+      setFieldErrors({ email: 'Email address is required.' });
       return;
     }
     if (!EMAIL_REGEX.test(cleanEmail)) {
-      setError('Please enter a valid email address.');
+      setFieldErrors({ email: 'Please enter a valid email address.' });
       return;
     }
 
     if (!password) {
-      setError('Password is required.');
+      setFieldErrors({ password: 'Password is required.' });
       return;
     }
 
     if (!isLogin) {
       const cleanName = name.trim();
       if (!cleanName) {
-        setError('Full name is required.');
+        setFieldErrors({ name: 'Full name is required.' });
         return;
       }
       if (cleanName.length > 100) {
-        setError('Name must be 100 characters or fewer.');
+        setFieldErrors({ name: 'Name must be 100 characters or fewer.' });
         return;
       }
       if (password.length < 8) {
-        setError('Password must be at least 8 characters long.');
+        setFieldErrors({ password: 'Password must be at least 8 characters long.' });
         return;
       }
     }
@@ -91,8 +105,10 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onAuthSuccess }) => {
   };
 
   return (
-    <div className="auth-page-wrapper">
-      <div className="auth-card">
+    <main className="auth-page-wrapper">
+      <div className="auth-ambient auth-ambient-one" aria-hidden="true" />
+      <div className="auth-ambient auth-ambient-two" aria-hidden="true" />
+      <section className="auth-card" aria-labelledby="auth-title">
         {/* Header with Brand Icon */}
         <div className="auth-header">
           <div className="auth-brand">
@@ -115,20 +131,20 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onAuthSuccess }) => {
             <span className="brand-name">FinTrack</span>
           </div>
 
-          <h2 className="auth-title">
-            {isLogin ? 'Sign in to your account' : 'Create your account'}
-          </h2>
+          <h1 className="auth-title" id="auth-title">
+            {isLogin ? 'Welcome Back' : 'Create Your Account'}
+          </h1>
           <p className="auth-subtitle">
             {isLogin
-              ? 'Enter your credentials to access your financial dashboard'
-              : 'Start tracking wealth, accounts, and budgets in real time'}
+              ? 'Sign in to continue managing your finances.'
+              : 'Start taking control of your finances today.'}
           </p>
         </div>
 
         {/* Error Alert Banner */}
         {error && (
-          <div className="modal-error-alert" role="alert">
-            ⚠️ {error}
+          <div className="auth-api-error" role="alert">
+            <span aria-hidden="true">!</span> {error}
           </div>
         )}
 
@@ -141,9 +157,11 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onAuthSuccess }) => {
               </label>
               <input
                 id="auth-name-input"
+                ref={!isLogin ? firstFieldRef : undefined}
                 type="text"
                 className="form-input"
                 placeholder="e.g. Alex Johnson"
+                autoComplete="name"
                 value={name}
                 onChange={(e) => {
                   setName(e.target.value);
@@ -152,7 +170,10 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onAuthSuccess }) => {
                 disabled={isSubmitting}
                 maxLength={100}
                 required
+                aria-invalid={Boolean(fieldErrors.name)}
+                aria-describedby={fieldErrors.name ? 'auth-name-error' : undefined}
               />
+              {fieldErrors.name && <p className="auth-field-error" id="auth-name-error">{fieldErrors.name}</p>}
             </div>
           )}
 
@@ -162,6 +183,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onAuthSuccess }) => {
             </label>
             <input
               id="auth-email-input"
+              ref={isLogin ? firstFieldRef : undefined}
               type="email"
               className="form-input"
               placeholder="you@example.com"
@@ -169,31 +191,52 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onAuthSuccess }) => {
               onChange={(e) => {
                 setEmail(e.target.value);
                 if (error) setError(null);
+                if (fieldErrors.email) setFieldErrors((current) => ({ ...current, email: '' }));
               }}
               disabled={isSubmitting}
               autoComplete="email"
               required
+              aria-invalid={Boolean(fieldErrors.email)}
+              aria-describedby={fieldErrors.email ? 'auth-email-error' : undefined}
             />
+            {fieldErrors.email && <p className="auth-field-error" id="auth-email-error">{fieldErrors.email}</p>}
           </div>
 
           <div className="form-group">
             <label className="form-label" htmlFor="auth-password-input">
               Password <span className="required-star">*</span>
             </label>
-            <input
-              id="auth-password-input"
-              type="password"
-              className="form-input"
-              placeholder={isLogin ? 'Enter your password' : 'At least 8 characters'}
-              value={password}
-              onChange={(e) => {
-                setPassword(e.target.value);
-                if (error) setError(null);
-              }}
-              disabled={isSubmitting}
-              autoComplete={isLogin ? 'current-password' : 'new-password'}
-              required
-            />
+            <div className="auth-password-wrap">
+              <input
+                id="auth-password-input"
+                type={showPassword ? 'text' : 'password'}
+                className="form-input"
+                placeholder={isLogin ? 'Enter your password' : 'At least 8 characters'}
+                value={password}
+                onChange={(e) => {
+                  setPassword(e.target.value);
+                  if (error) setError(null);
+                  if (fieldErrors.password) setFieldErrors((current) => ({ ...current, password: '' }));
+                }}
+                disabled={isSubmitting}
+                autoComplete={isLogin ? 'current-password' : 'new-password'}
+                required
+                aria-invalid={Boolean(fieldErrors.password)}
+                aria-describedby={[!isLogin ? 'auth-password-hint' : '', fieldErrors.password ? 'auth-password-error' : ''].filter(Boolean).join(' ') || undefined}
+              />
+              <button
+                type="button"
+                className="auth-password-toggle"
+                onClick={() => setShowPassword((visible) => !visible)}
+                disabled={isSubmitting}
+                aria-label={showPassword ? 'Hide password' : 'Show password'}
+                aria-pressed={showPassword}
+              >
+                {showPassword ? 'Hide' : 'Show'}
+              </button>
+            </div>
+            {!isLogin && <p className="auth-field-hint" id="auth-password-hint">Use at least 8 characters.</p>}
+            {fieldErrors.password && <p className="auth-field-error" id="auth-password-error">{fieldErrors.password}</p>}
           </div>
 
           {!isLogin && (
@@ -223,6 +266,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onAuthSuccess }) => {
             disabled={isSubmitting}
             id="auth-submit-btn"
           >
+            {isSubmitting && <span className="auth-submit-spinner" aria-hidden="true" />}
             {isSubmitting
               ? isLogin
                 ? 'Signing in...'
@@ -232,6 +276,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onAuthSuccess }) => {
                 : 'Create Account'}
           </button>
         </form>
+        <span className="auth-sr-only" role="status" aria-live="polite">{isSubmitting ? (isLogin ? 'Signing in…' : 'Creating account…') : ''}</span>
 
         {/* Footer Toggle between Login and Register */}
         <div className="auth-switch-footer">
@@ -263,7 +308,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onAuthSuccess }) => {
             </span>
           )}
         </div>
-      </div>
-    </div>
+      </section>
+    </main>
   );
 };
