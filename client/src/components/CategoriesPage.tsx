@@ -26,14 +26,21 @@ export const CategoriesPage: React.FC<CategoriesPageProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
+  const [isCategoryPickerOpen, setIsCategoryPickerOpen] = useState(false);
 
   // Delete confirmation state
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const deleteModalRef = useRef<HTMLDivElement>(null);
+  const categoryPickerRef = useRef<HTMLDivElement>(null);
+  const addCategoryButtonRef = useRef<HTMLButtonElement>(null);
+  const editCategoriesButtonRef = useRef<HTMLButtonElement>(null);
+  const categoryFocusReturnRef = useRef<HTMLElement | null>(null);
+  const deleteFocusReturnRef = useRef<HTMLElement | null>(null);
 
-  const handleOpenAdd = () => {
+  const handleOpenAdd = (event: React.MouseEvent<HTMLButtonElement>) => {
+    categoryFocusReturnRef.current = event.currentTarget;
     setEditingCategory(null);
     setIsModalOpen(true);
   };
@@ -41,14 +48,66 @@ export const CategoriesPage: React.FC<CategoriesPageProps> = ({
   const handleOpenEdit = (category: Category) => {
     if (category.isSystem) return;
     setEditingCategory(category);
+    setIsCategoryPickerOpen(false);
     setIsModalOpen(true);
   };
 
-  const handleDeleteRequest = (category: Category) => {
+  const handleOpenCategoryPicker = (event: React.MouseEvent<HTMLButtonElement>) => {
+    categoryFocusReturnRef.current = event.currentTarget;
+    setIsCategoryPickerOpen(true);
+  };
+
+  const handleDeleteRequest = (category: Category, event: React.MouseEvent<HTMLButtonElement>) => {
     if (category.isSystem) return;
+    deleteFocusReturnRef.current = event.currentTarget;
     setDeleteConfirmId(category.id);
     setDeleteError(null);
   };
+
+  const handleClearFilters = () => {
+    setSearchQuery('');
+    setFilterType('all');
+  };
+
+  useEffect(() => {
+    if (!isModalOpen && !isCategoryPickerOpen && categoryFocusReturnRef.current) {
+      categoryFocusReturnRef.current.focus();
+      categoryFocusReturnRef.current = null;
+    }
+  }, [isModalOpen, isCategoryPickerOpen]);
+
+  useEffect(() => {
+    if (!isCategoryPickerOpen || deleteConfirmId) return;
+    const picker = categoryPickerRef.current;
+    const focusable = () => picker?.querySelectorAll<HTMLElement>(
+      'button:not(:disabled), [href], input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex="-1"])'
+    );
+    focusable()?.[0]?.focus();
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setIsCategoryPickerOpen(false);
+      if (event.key !== 'Tab' || !picker) return;
+      const items = focusable();
+      if (!items?.length) {
+        event.preventDefault();
+        picker.focus();
+      } else if (event.shiftKey && (document.activeElement === items[0] || document.activeElement === picker)) {
+        event.preventDefault();
+        items[items.length - 1].focus();
+      } else if (!event.shiftKey && document.activeElement === items[items.length - 1]) {
+        event.preventDefault();
+        items[0].focus();
+      }
+    };
+    const handleMouseDown = (event: MouseEvent) => {
+      if (picker && !picker.contains(event.target as Node)) setIsCategoryPickerOpen(false);
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    document.addEventListener('mousedown', handleMouseDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      document.removeEventListener('mousedown', handleMouseDown);
+    };
+  }, [isCategoryPickerOpen, deleteConfirmId, categories]);
 
   const handleDeleteCancel = useCallback(() => {
     if (!isDeleting) {
@@ -73,9 +132,35 @@ export const CategoriesPage: React.FC<CategoriesPageProps> = ({
 
   // Close delete modal on Escape or outside click
   useEffect(() => {
-    if (!deleteConfirmId) return;
+    if (!deleteConfirmId) {
+      const focusTarget = deleteFocusReturnRef.current;
+      if (focusTarget?.isConnected) focusTarget.focus();
+      else if (focusTarget) addCategoryButtonRef.current?.focus();
+      deleteFocusReturnRef.current = null;
+      return;
+    }
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') handleDeleteCancel();
+      if (e.key === 'Tab' && deleteModalRef.current) {
+        const focusable = Array.from(
+          deleteModalRef.current.querySelectorAll<HTMLElement>(
+            'button:not(:disabled), [href], input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex="-1"])'
+          )
+        );
+        if (focusable.length === 0) {
+          e.preventDefault();
+          deleteModalRef.current.focus();
+        } else if (document.activeElement === deleteModalRef.current) {
+          e.preventDefault();
+          (e.shiftKey ? focusable[focusable.length - 1] : focusable[0]).focus();
+        } else if (e.shiftKey && document.activeElement === focusable[0]) {
+          e.preventDefault();
+          focusable[focusable.length - 1].focus();
+        } else if (!e.shiftKey && document.activeElement === focusable[focusable.length - 1]) {
+          e.preventDefault();
+          focusable[0].focus();
+        }
+      }
     };
     const handleMouseDown = (e: MouseEvent) => {
       if (deleteModalRef.current && !deleteModalRef.current.contains(e.target as Node)) {
@@ -84,6 +169,7 @@ export const CategoriesPage: React.FC<CategoriesPageProps> = ({
     };
     window.addEventListener('keydown', handleKeyDown);
     document.addEventListener('mousedown', handleMouseDown);
+    deleteModalRef.current?.focus();
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
       document.removeEventListener('mousedown', handleMouseDown);
@@ -103,60 +189,58 @@ export const CategoriesPage: React.FC<CategoriesPageProps> = ({
   const categoryToDelete = categories.find((c) => c.id === deleteConfirmId);
   const customCount = categories.filter((c) => !c.isSystem).length;
   const systemCount = categories.filter((c) => c.isSystem).length;
+  const hasActiveFilters = searchQuery.trim().length > 0 || filterType !== 'all';
 
   return (
-    <div className="transactions-section">
+    <div className="transactions-section categories-page">
       {/* Header */}
-      <div className="section-header">
+      <div className="section-header categories-page-header">
         <div className="section-title-wrap">
           <h2 className="section-title">Categories</h2>
           <span className="section-subtitle">
-            {categories.length} total categories • {systemCount} system defaults • {customCount} custom
+            Organize income, expenses, and transfers · {categories.length} total
+            <span className="categories-header-counts">{systemCount} defaults · {customCount} custom</span>
           </span>
         </div>
 
-        <button
-          className="btn-primary"
-          onClick={handleOpenAdd}
-          id="add-category-btn"
-          aria-label="Add New Category"
-        >
-          <svg
-            aria-hidden="true"
-            width="16"
-            height="16"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2.5"
-            strokeLinecap="round"
-            strokeLinejoin="round"
+        <div className="categories-header-actions">
+          <button
+            ref={editCategoriesButtonRef}
+            className="btn-secondary category-edit-action"
+            onClick={handleOpenCategoryPicker}
+            aria-label="Edit Categories"
+            aria-haspopup="dialog"
+            aria-expanded={isCategoryPickerOpen}
           >
-            <line x1="12" y1="5" x2="12" y2="19"></line>
-            <line x1="5" y1="12" x2="19" y2="12"></line>
-          </svg>
-          <span>Add Category</span>
-        </button>
+            <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M12 20h9" /><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L8 18l-4 1 1-4Z" />
+            </svg>
+            <span>Edit Categories</span>
+          </button>
+          <button
+            ref={addCategoryButtonRef}
+            className="btn-primary category-add-action"
+            onClick={handleOpenAdd}
+            id="add-category-btn"
+            aria-label="Add New Category"
+          >
+            <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="12" y1="5" x2="12" y2="19"></line>
+              <line x1="5" y1="12" x2="19" y2="12"></line>
+            </svg>
+            <span>Add Category</span>
+          </button>
+        </div>
       </div>
 
       {/* Global Error Alert */}
       {error && (
-        <div
-          className="modal-error-alert"
-          style={{
-            margin: '0 0 16px 0',
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-          }}
-          role="alert"
-        >
+        <div className="categories-page-error" role="alert">
           <span>⚠️ {error}</span>
-          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+          <div className="categories-error-actions">
             {onRetry && (
               <button
                 className="btn-secondary"
-                style={{ padding: '2px 8px', fontSize: '0.75rem' }}
                 onClick={onRetry}
               >
                 Retry
@@ -164,13 +248,7 @@ export const CategoriesPage: React.FC<CategoriesPageProps> = ({
             )}
             {onClearError && (
               <button
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  cursor: 'pointer',
-                  fontSize: '1rem',
-                  color: 'inherit',
-                }}
+                className="categories-error-dismiss"
                 onClick={onClearError}
                 aria-label="Dismiss error"
               >
@@ -182,8 +260,8 @@ export const CategoriesPage: React.FC<CategoriesPageProps> = ({
       )}
 
       {/* Controls & Filter Bar */}
-      <div className="section-controls" style={{ marginBottom: '20px' }}>
-        <div className="search-box">
+      <div className="section-controls categories-toolbar">
+        <div className="search-box categories-search-box">
           <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <circle cx="11" cy="11" r="8"></circle>
             <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
@@ -191,6 +269,7 @@ export const CategoriesPage: React.FC<CategoriesPageProps> = ({
           <input
             type="text"
             placeholder="Search categories..."
+            className="search-input"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             aria-label="Search categories by name"
@@ -198,7 +277,7 @@ export const CategoriesPage: React.FC<CategoriesPageProps> = ({
           {searchQuery && (
             <button
               onClick={() => setSearchQuery('')}
-              style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-subtle)' }}
+              className="search-clear"
               aria-label="Clear search"
             >
               ✕
@@ -209,24 +288,28 @@ export const CategoriesPage: React.FC<CategoriesPageProps> = ({
         <div className="filter-pills" role="group" aria-label="Filter categories by type">
           <button
             className={`filter-pill ${filterType === 'all' ? 'active' : ''}`}
+            aria-pressed={filterType === 'all'}
             onClick={() => setFilterType('all')}
           >
             All ({categories.length})
           </button>
           <button
             className={`filter-pill ${filterType === 'expense' ? 'active' : ''}`}
+            aria-pressed={filterType === 'expense'}
             onClick={() => setFilterType('expense')}
           >
             Expenses ({categories.filter((c) => c.type === 'expense').length})
           </button>
           <button
             className={`filter-pill ${filterType === 'income' ? 'active' : ''}`}
+            aria-pressed={filterType === 'income'}
             onClick={() => setFilterType('income')}
           >
             Income ({categories.filter((c) => c.type === 'income').length})
           </button>
           <button
             className={`filter-pill ${filterType === 'transfer' ? 'active' : ''}`}
+            aria-pressed={filterType === 'transfer'}
             onClick={() => setFilterType('transfer')}
           >
             Transfers ({categories.filter((c) => c.type === 'transfer').length})
@@ -236,178 +319,83 @@ export const CategoriesPage: React.FC<CategoriesPageProps> = ({
 
       {/* Loading state */}
       {isLoading && categories.length === 0 ? (
-        <div style={{ textAlign: 'center', padding: '48px 0', color: 'var(--text-subtle)' }}>
-          <p>Loading categories from server...</p>
+        <div className="categories-loading-state" role="status" aria-live="polite">
+          <span className="categories-loading-spinner" aria-hidden="true" />
+          <span>Loading your categories…</span>
         </div>
       ) : filteredCategories.length === 0 ? (
-        <div className="empty-state">
-          <div className="empty-icon">🏷️</div>
-          <h3 className="empty-title">
-            {searchQuery ? 'No matching categories found' : 'No categories available'}
+        <div className="categories-empty-state">
+          <span className="categories-empty-icon" aria-hidden="true">
+            {hasActiveFilters ? '⌕' : '◇'}
+          </span>
+          <h3>
+            {hasActiveFilters ? 'No matching categories' : 'No categories yet'}
           </h3>
-          <p className="empty-desc">
-            {searchQuery
-              ? `No categories match "${searchQuery}". Try a different search term or clear the filter.`
-              : 'Add your first custom category to organize expenses and income.'}
+          <p>
+            {hasActiveFilters
+              ? 'No categories match the current search or type filter. Clear the filters to see all categories.'
+              : 'Add a custom category to organize your income, expenses, and transfers.'}
           </p>
-          {searchQuery ? (
-            <button className="empty-action-btn" onClick={() => setSearchQuery('')}>
-              Clear Search Filter
+          {hasActiveFilters ? (
+            <button className="btn-secondary" onClick={handleClearFilters}>
+              Clear filters
             </button>
           ) : (
-            <button className="empty-action-btn" onClick={handleOpenAdd}>
-              + Create Category
+            <button className="btn-primary" onClick={handleOpenAdd}>
+              Create category
             </button>
           )}
         </div>
       ) : (
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
-            gap: '16px',
-          }}
-        >
+        <div className="category-card-grid">
           {filteredCategories.map((category) => {
-            const isExpense = category.type === 'expense';
-            const isIncome = category.type === 'income';
-
             return (
-              <div
-                key={category.id}
-                style={{
-                  backgroundColor: 'var(--bg-surface, #1e293b)',
-                  border: '1px solid var(--border-subtle, #334155)',
-                  borderRadius: 'var(--radius-lg, 12px)',
-                  padding: '16px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  gap: '12px',
-                  boxShadow: 'var(--shadow-sm, 0 1px 2px rgba(0,0,0,0.05))',
-                  transition: 'transform 0.15s ease, border-color 0.15s ease',
-                }}
-              >
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0 }}>
-                  <div
+              <article key={category.id} className="category-card">
+                <div className="category-card-content">
+                  <span
+                    className="category-card-icon"
                     style={{
-                      width: '42px',
-                      height: '42px',
-                      borderRadius: '10px',
-                      backgroundColor: category.color ? `${category.color}22` : 'rgba(99, 102, 241, 0.12)',
-                      border: `1.5px solid ${category.color || 'var(--primary, #6366f1)'}`,
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      fontSize: '1.4rem',
-                      flexShrink: 0,
+                      color: category.color || 'var(--primary)',
+                      backgroundColor: category.color ? `${category.color}20` : 'var(--primary-light)',
+                      borderColor: category.color || 'var(--border-subtle)',
                     }}
+                    aria-hidden="true"
                   >
-                    <span>{category.icon || '🏷️'}</span>
-                  </div>
+                    {category.icon || '🏷️'}
+                  </span>
 
-                  <div style={{ minWidth: 0 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
-                      <h3
-                        style={{
-                          margin: 0,
-                          fontSize: '1rem',
-                          fontWeight: 600,
-                          color: 'var(--text-main, #f8fafc)',
-                          whiteSpace: 'nowrap',
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                        }}
-                        title={category.name}
-                      >
-                        {category.name}
-                      </h3>
+                  <div className="category-card-details">
+                    <div className="category-card-title-row">
+                      <h3 className="category-card-name" title={category.name}>{category.name}</h3>
                       {category.isSystem && (
-                        <span
-                          style={{
-                            fontSize: '0.65rem',
-                            padding: '1px 6px',
-                            borderRadius: '4px',
-                            backgroundColor: 'rgba(148, 163, 184, 0.15)',
-                            color: 'var(--text-subtle, #94a3b8)',
-                            fontWeight: 500,
-                            letterSpacing: '0.02em',
-                          }}
-                          title="System default category"
-                        >
+                        <span className="category-system-badge" title="System default category">
+                          <svg aria-hidden="true" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M12 22s8-4 8-11V5l-8-3-8 3v6c0 7 8 11 8 11Z" />
+                            <path d="m9 12 2 2 4-4" />
+                          </svg>
                           Default
                         </span>
                       )}
                     </div>
-
-                    <div style={{ marginTop: '4px' }}>
-                      <span
-                        style={{
-                          fontSize: '0.72rem',
-                          fontWeight: 600,
-                          padding: '2px 8px',
-                          borderRadius: '12px',
-                          textTransform: 'uppercase',
-                          letterSpacing: '0.03em',
-                          backgroundColor: isExpense
-                            ? 'rgba(244, 63, 94, 0.12)'
-                            : isIncome
-                            ? 'rgba(16, 185, 129, 0.12)'
-                            : 'rgba(59, 130, 246, 0.12)',
-                          color: isExpense
-                            ? '#f43f5e'
-                            : isIncome
-                            ? '#10b981'
-                            : '#3b82f6',
-                        }}
-                      >
-                        {category.type}
-                      </span>
-                    </div>
+                    <span className={`category-type-badge ${category.type}`}>
+                      {category.type === 'expense' ? 'Expense' : category.type === 'income' ? 'Income' : 'Transfer'}
+                    </span>
                   </div>
                 </div>
 
-                {/* Actions for custom categories */}
-                {!category.isSystem ? (
-                  <div style={{ display: 'flex', gap: '6px', flexShrink: 0 }}>
-                    <button
-                      className="budget-action-btn"
-                      onClick={() => handleOpenEdit(category)}
-                      title={`Edit ${category.name}`}
-                      aria-label={`Edit ${category.name}`}
-                    >
-                      <svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
-                        <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
-                      </svg>
-                    </button>
-                    <button
-                      className="budget-action-btn delete"
-                      onClick={() => handleDeleteRequest(category)}
-                      title={`Delete ${category.name}`}
-                      aria-label={`Delete ${category.name}`}
-                    >
-                      <svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <polyline points="3 6 5 6 21 6"></polyline>
-                        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-                      </svg>
-                    </button>
-                  </div>
-                ) : (
+                {category.isSystem && (
                   <span
-                    style={{
-                      fontSize: '0.85rem',
-                      color: 'var(--text-subtle, #94a3b8)',
-                      opacity: 0.5,
-                      padding: '4px',
-                    }}
+                    className="category-protected-indicator"
                     title="System default category (protected)"
-                    aria-label="System default category"
+                    aria-label="System category; editing and deletion are protected"
                   >
-                    🔒
+                    <svg aria-hidden="true" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <rect x="3" y="11" width="18" height="11" rx="2" />
+                      <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                    </svg>
                   </span>
                 )}
-              </div>
+              </article>
             );
           })}
         </div>
@@ -421,15 +409,84 @@ export const CategoriesPage: React.FC<CategoriesPageProps> = ({
         existingCategory={editingCategory}
       />
 
+      {isCategoryPickerOpen && (
+        <div className="modal-overlay">
+          <div
+            ref={categoryPickerRef}
+            className="modal-container category-picker-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="category-picker-title"
+            aria-describedby="category-picker-description"
+            tabIndex={-1}
+          >
+            <div className="modal-header">
+              <div>
+                <h2 className="modal-title" id="category-picker-title">Edit Categories</h2>
+                <p className="modal-subtitle" id="category-picker-description">
+                  Choose a custom category to edit. Default categories are protected by the current API.
+                </p>
+              </div>
+              <button className="modal-close-btn" onClick={() => setIsCategoryPickerOpen(false)} aria-label="Close category selection">
+                ✕
+              </button>
+            </div>
+            <div className="category-picker-list" role="list" aria-label="All categories">
+              {categories.map((category) => (
+                <div className={`category-picker-row ${category.isSystem ? 'protected' : ''}`} key={category.id} role="listitem">
+                  <button
+                    type="button"
+                    className="category-picker-select"
+                    onClick={() => handleOpenEdit(category)}
+                    disabled={category.isSystem}
+                    aria-label={category.isSystem ? `${category.name}, ${category.type}, system category; editing unavailable` : `Edit ${category.name}, ${category.type}`}
+                    title={category.isSystem ? 'System categories cannot be modified by the current API' : `Edit ${category.name}`}
+                  >
+                    <span
+                      className="category-picker-icon"
+                      style={{ color: category.color || 'var(--primary)', backgroundColor: category.color ? `${category.color}20` : 'var(--primary-light)' }}
+                      aria-hidden="true"
+                    >{category.icon || '🏷️'}</span>
+                    <span className="category-picker-details">
+                      <span className="category-picker-name">{category.name}</span>
+                      <span className={`category-type-badge ${category.type}`}>
+                        {category.type === 'expense' ? 'Expense' : category.type === 'income' ? 'Income' : 'Transfer'}
+                      </span>
+                    </span>
+                    {category.isSystem ? <span className="category-picker-system">Default · protected</span> : <span className="category-picker-edit-hint">Edit</span>}
+                  </button>
+                  {!category.isSystem && (
+                    <button
+                      type="button"
+                      className="category-picker-delete"
+                      onClick={(event) => handleDeleteRequest(category, event)}
+                      aria-label={`Delete ${category.name}`}
+                      title={`Delete ${category.name}`}
+                    >
+                      <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <polyline points="3 6 5 6 21 6"></polyline>
+                        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                      </svg>
+                    </button>
+                  )}
+                </div>
+              ))}
+              {categories.length === 0 && <p className="category-picker-empty">No categories available.</p>}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Delete Confirmation Modal */}
       {deleteConfirmId && categoryToDelete && (
         <div className="modal-overlay">
           <div
             ref={deleteModalRef}
-            className="modal-container"
+            className="modal-container category-delete-modal"
             role="dialog"
             aria-modal="true"
             aria-labelledby="delete-cat-title"
+            tabIndex={-1}
           >
             <div className="modal-header">
               <div>
@@ -452,19 +509,23 @@ export const CategoriesPage: React.FC<CategoriesPageProps> = ({
               </div>
             )}
 
-            <div className="acct-confirm-body" style={{ padding: '20px 24px', display: 'flex', gap: '16px' }}>
-              <div style={{ fontSize: '2rem' }}>🗑️</div>
-              <div>
-                <p style={{ margin: '0 0 8px 0', fontSize: '1rem', color: 'var(--text-main, #f8fafc)' }}>
+            <div className="category-delete-body">
+              <span className="category-delete-icon" aria-hidden="true">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M3 6h18M8 6V4h8v2m3 0-1 14H6L5 6m4 4v6m6-6v6" />
+                </svg>
+              </span>
+              <div className="category-delete-copy">
+                <p className="category-delete-question">
                   Are you sure you want to delete category <strong>"{categoryToDelete.name}"</strong>?
                 </p>
-                <p style={{ margin: 0, fontSize: '0.875rem', color: 'var(--text-subtle, #94a3b8)', lineHeight: 1.5 }}>
-                  💡 Categories with associated transactions or budgets cannot be deleted to maintain financial history integrity.
+                <p className="category-delete-note">
+                  Categories used by transactions or budgets cannot be deleted, preserving your financial history.
                 </p>
               </div>
             </div>
 
-            <div className="modal-actions" style={{ padding: '0 24px 24px' }}>
+            <div className="modal-actions category-delete-actions">
               <button
                 className="btn-secondary"
                 onClick={handleDeleteCancel}

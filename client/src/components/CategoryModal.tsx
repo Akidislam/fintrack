@@ -80,6 +80,30 @@ export const CategoryModal: React.FC<CategoryModalProps> = ({
     return () => document.removeEventListener('mousedown', handleMouseDown);
   }, [isOpen, onClose]);
 
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleTabKey = (event: KeyboardEvent) => {
+      if (event.key !== 'Tab' || !modalRef.current) return;
+      const focusable = Array.from(
+        modalRef.current.querySelectorAll<HTMLElement>(
+          'button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex="-1"])'
+        )
+      );
+      if (focusable.length === 0) {
+        event.preventDefault();
+        modalRef.current.focus();
+      } else if (event.shiftKey && document.activeElement === focusable[0]) {
+        event.preventDefault();
+        focusable[focusable.length - 1].focus();
+      } else if (!event.shiftKey && document.activeElement === focusable[focusable.length - 1]) {
+        event.preventDefault();
+        focusable[0].focus();
+      }
+    };
+    window.addEventListener('keydown', handleTabKey);
+    return () => window.removeEventListener('keydown', handleTabKey);
+  }, [isOpen]);
+
   if (!isOpen) return null;
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -119,10 +143,17 @@ export const CategoryModal: React.FC<CategoryModalProps> = ({
 
   return (
     <div className="modal-overlay">
-      <div ref={modalRef} className="modal-container" role="dialog" aria-modal="true">
+      <div
+        ref={modalRef}
+        className="modal-container category-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="category-modal-title"
+        tabIndex={-1}
+      >
         <div className="modal-header">
           <div>
-            <h2 className="modal-title">
+            <h2 className="modal-title" id="category-modal-title">
               {existingCategory ? 'Edit Category' : 'Create Category'}
             </h2>
             <p className="modal-subtitle">
@@ -136,7 +167,7 @@ export const CategoryModal: React.FC<CategoryModalProps> = ({
           </button>
         </div>
 
-        {error && <div className="modal-error-alert">{error}</div>}
+        {error && <div className="modal-error-alert" role="alert">{error}</div>}
 
         <form onSubmit={handleSubmit} className="modal-form">
           {/* Type Selector Toggle */}
@@ -146,6 +177,7 @@ export const CategoryModal: React.FC<CategoryModalProps> = ({
               <button
                 type="button"
                 className={`type-toggle-btn expense ${type === 'expense' ? 'selected' : ''}`}
+                aria-pressed={type === 'expense'}
                 onClick={() => {
                   setType('expense');
                   if (!existingCategory) setIcon('🛒');
@@ -156,6 +188,7 @@ export const CategoryModal: React.FC<CategoryModalProps> = ({
               <button
                 type="button"
                 className={`type-toggle-btn income ${type === 'income' ? 'selected' : ''}`}
+                aria-pressed={type === 'income'}
                 onClick={() => {
                   setType('income');
                   if (!existingCategory) setIcon('💰');
@@ -166,6 +199,7 @@ export const CategoryModal: React.FC<CategoryModalProps> = ({
               <button
                 type="button"
                 className={`type-toggle-btn transfer ${type === 'transfer' ? 'selected' : ''}`}
+                aria-pressed={type === 'transfer'}
                 onClick={() => {
                   setType('transfer');
                   if (!existingCategory) setIcon('🔄');
@@ -199,35 +233,28 @@ export const CategoryModal: React.FC<CategoryModalProps> = ({
             <label htmlFor="category-icon" className="form-label">
               Icon / Emoji
             </label>
-            <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '8px' }}>
+            <div className="category-icon-input-row">
               <input
                 id="category-icon"
                 type="text"
                 value={icon}
                 onChange={(e) => setIcon(e.target.value)}
-                className="form-input"
-                style={{ width: '80px', textAlign: 'center', fontSize: '1.25rem' }}
+                className="form-input category-icon-input"
                 maxLength={4}
               />
-              <span className="form-hint" style={{ margin: 0 }}>
+              <span className="form-hint">
                 Pick from quick suggestions below or type an emoji
               </span>
             </div>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+            <div className="category-icon-presets" role="group" aria-label="Choose an icon">
               {currentPresetIcons.map((preset) => (
                 <button
                   key={preset}
                   type="button"
+                  className={`category-icon-preset ${icon === preset ? 'selected' : ''}`}
                   onClick={() => setIcon(preset)}
-                  style={{
-                    background: icon === preset ? 'var(--primary-subtle, rgba(99, 102, 241, 0.15))' : 'var(--bg-card, #1e293b)',
-                    border: icon === preset ? '2px solid var(--primary, #6366f1)' : '1px solid var(--border-subtle, #334155)',
-                    borderRadius: '8px',
-                    padding: '6px 10px',
-                    fontSize: '1.2rem',
-                    cursor: 'pointer',
-                    transition: 'all 0.15s ease',
-                  }}
+                  aria-label={`Select icon ${preset}`}
+                  aria-pressed={icon === preset}
                   title={`Use ${preset}`}
                 >
                   {preset}
@@ -241,42 +268,29 @@ export const CategoryModal: React.FC<CategoryModalProps> = ({
             <label htmlFor="category-color" className="form-label">
               Badge Color
             </label>
-            <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '8px' }}>
+            <div className="category-color-input-row">
               <input
                 id="category-color"
                 type="color"
                 value={color}
                 onChange={(e) => setColor(e.target.value)}
-                style={{
-                  width: '42px',
-                  height: '36px',
-                  border: '1px solid var(--border-subtle, #334155)',
-                  borderRadius: '6px',
-                  cursor: 'pointer',
-                  padding: '2px',
-                  backgroundColor: 'transparent',
-                }}
+                className="category-native-color-input"
+                aria-label="Choose custom category color"
               />
-              <span style={{ fontSize: '0.85rem', color: 'var(--text-subtle, #94a3b8)', fontFamily: 'monospace' }}>
+              <span className="category-color-value">
                 {color}
               </span>
             </div>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+            <div className="category-color-presets" role="group" aria-label="Choose a preset color">
               {PRESET_COLORS.map((preset) => (
                 <button
                   key={preset}
                   type="button"
+                  className={`category-color-preset ${color.toLowerCase() === preset ? 'selected' : ''}`}
                   onClick={() => setColor(preset)}
-                  style={{
-                    backgroundColor: preset,
-                    width: '24px',
-                    height: '24px',
-                    borderRadius: '50%',
-                    border: color === preset ? '2px solid #fff' : '2px solid transparent',
-                    boxShadow: color === preset ? '0 0 0 2px var(--primary, #6366f1)' : 'none',
-                    cursor: 'pointer',
-                    outline: 'none',
-                  }}
+                  style={{ backgroundColor: preset }}
+                  aria-label={`Select color ${preset}`}
+                  aria-pressed={color.toLowerCase() === preset}
                   title={preset}
                 />
               ))}
