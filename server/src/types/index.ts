@@ -146,6 +146,30 @@ export interface UpdateBudgetDTO {
   monthlyLimit?: number;
 }
 
+export interface PersonResponse {
+  id: string;
+  name: string;
+  phone: string | null;
+  email: string | null;
+  note: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreatePersonDTO {
+  name: string;
+  phone?: string | null;
+  email?: string | null;
+  note?: string | null;
+}
+
+export interface UpdatePersonDTO {
+  name?: string;
+  phone?: string | null;
+  email?: string | null;
+  note?: string | null;
+}
+
 export interface RegisterDTO {
   name: string;
   email: string;
