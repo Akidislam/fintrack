@@ -89,3 +89,87 @@ export interface User {
   currency: string;
   createdAt: string;
 }
+
+export interface Person {
+  id: string;
+  name: string;
+  phone: string | null;
+  email: string | null;
+  note: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreatePersonInput {
+  name: string;
+  phone?: string | null;
+  email?: string | null;
+  note?: string | null;
+}
+
+export interface UpdatePersonInput {
+  name?: string;
+  phone?: string | null;
+  email?: string | null;
+  note?: string | null;
+}
+
+export interface GetPeopleParams {
+  search?: string;
+  limit?: number;
+  offset?: number;
+}
+
+export type LoanDirection = 'lent' | 'borrowed';
+export type LoanInterestMethod = 'none' | 'simple' | 'flat';
+export type LoanRepaymentMode = 'one_time' | 'installments';
+
+export interface LoanInstallmentInput {
+  dueDate: string;
+  principalDue: string;
+}
+
+export interface CreateLoanInput {
+  personId: string;
+  type: LoanDirection;
+  amount: string;
+  accountId: string;
+  currency?: string;
+  startDate: string;
+  dueDate?: string;
+  interestMethod: LoanInterestMethod;
+  annualRatePct: string;
+  repaymentMode: LoanRepaymentMode;
+  description?: string | null;
+  installments?: LoanInstallmentInput[];
+}
+
+export interface CreatedLoan {
+  id: string;
+  userId: string;
+  personId: string;
+  personName: string;
+  type: LoanDirection;
+  amount: string;
+  accountId: string;
+  accountName: string;
+  currency: string;
+  startDate: string;
+  dueDate: string;
+  interestMethod: LoanInterestMethod;
+  annualRatePct: string;
+  repaymentMode: LoanRepaymentMode;
+  description: string | null;
+  status: string;
+  currentScheduleVersion: number;
+  schedule: {
+    version: number;
+    installments: Array<{
+      installmentNumber: number;
+      dueDate: string;
+      principalDue: string;
+      interestDue: string;
+    }>;
+  };
+  createdAt: string;
+}

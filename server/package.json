@@ -7,7 +7,7 @@
     "build": "tsc",
     "dev": "tsx watch src/index.ts",
     "migrate": "tsx src/db/migrate.ts",
-    "test:loans": "tsx --test tests/loanCreation.test.ts"
+    "test:loans": "tsx --test tests/loanCreation.test.ts && tsx --test tests/loanListDetails.test.ts"
   },
   "keywords": [],
   "author": "",

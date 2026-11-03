@@ -56,6 +56,51 @@ export interface CreatedLoan {
   createdAt: string;
 }
 
+export interface LoanListItem {
+  id: string;
+  person: { id: string; name: string };
+  type: LoanDirection;
+  amount: string;
+  account: { id: string; name: string; type: string; currency: string } | null;
+  currency: string;
+  startDate: string;
+  dueDate: string;
+  interestMethod: InterestMethod;
+  annualRatePct: string;
+  repaymentMode: RepaymentMode;
+  description: string | null;
+  status: string;
+  currentScheduleVersion: number;
+  createdAt: string;
+}
+
+export interface LoanDetail extends Omit<LoanListItem, "person" | "account"> {
+  person: {
+    id: string;
+    name: string;
+    phone: string | null;
+    email: string | null;
+    note: string | null;
+  };
+  account: {
+    id: string;
+    name: string;
+    type: string;
+    currency: string;
+    isArchived: boolean;
+  } | null;
+  schedule: {
+    version: number;
+    installments: Array<{
+      id: string;
+      installmentNumber: number;
+      dueDate: string;
+      principalDue: string;
+      interestDue: string;
+    }>;
+  };
+}
+
 export type CreateLoanResult =
   | { kind: "created"; loan: CreatedLoan }
   | { kind: "replayed"; loan: CreatedLoan }
@@ -68,7 +113,7 @@ export type CreateLoanResult =
 
 interface ScheduleRow {
   installment_number: number;
-  due_date: Date | string;
+  due_date: string;
   principal_due: string;
   interest_due: string;
 }
@@ -83,8 +128,8 @@ interface LoanRow {
   account_id: string;
   account_name: string;
   currency: string;
-  start_date: Date | string;
-  due_date: Date | string;
+  start_date: string;
+  due_date: string;
   interest_method: InterestMethod;
   annual_rate_pct: string;
   repayment_mode: RepaymentMode;
@@ -94,12 +139,160 @@ interface LoanRow {
   created_at: Date | string;
 }
 
-function dateOnly(value: Date | string): string {
-  return value instanceof Date ? value.toISOString().slice(0, 10) : String(value).slice(0, 10);
+interface LoanListRow {
+  id: string;
+  person_id: string;
+  person_name: string;
+  type: LoanDirection;
+  amount: string;
+  account_id: string | null;
+  account_name: string | null;
+  account_type: string | null;
+  account_currency: string | null;
+  currency: string;
+  start_date: string;
+  due_date: string;
+  interest_method: InterestMethod;
+  annual_rate_pct: string;
+  repayment_mode: RepaymentMode;
+  description: string | null;
+  status: string;
+  current_schedule_version: number;
+  created_at: Date | string;
+}
+
+interface LoanDetailRow extends LoanListRow {
+  person_phone: string | null;
+  person_email: string | null;
+  person_note: string | null;
+  account_is_archived: boolean | null;
+  current_schedule_version_row: number | null;
+  installment_id: string | null;
+  installment_number: number | null;
+  installment_due_date: string | null;
+  principal_due: string | null;
+  interest_due: string | null;
+}
+
+function dateOnly(value: string): string {
+  return value.slice(0, 10);
 }
 
 function isoTimestamp(value: Date | string): string {
   return value instanceof Date ? value.toISOString() : new Date(value).toISOString();
+}
+
+function mapLoanListRow(row: LoanListRow): LoanListItem {
+  return {
+    id: row.id,
+    person: { id: row.person_id, name: row.person_name },
+    type: row.type,
+    amount: row.amount,
+    account: row.account_id && row.account_name && row.account_type && row.account_currency
+      ? { id: row.account_id, name: row.account_name, type: row.account_type, currency: row.account_currency }
+      : null,
+    currency: row.currency,
+    startDate: dateOnly(row.start_date),
+    dueDate: dateOnly(row.due_date),
+    interestMethod: row.interest_method,
+    annualRatePct: row.annual_rate_pct,
+    repaymentMode: row.repayment_mode,
+    description: row.description,
+    status: row.status,
+    currentScheduleVersion: row.current_schedule_version,
+    createdAt: isoTimestamp(row.created_at),
+  };
+}
+
+export async function listLoans(
+  userId: string,
+  limit: number,
+  offset: number
+): Promise<LoanListItem[]> {
+  const result = await pool.query<LoanListRow>(
+    `SELECT d.id, d.person_id, p.name AS person_name, d.type, d.amount::text,
+            d.account_id, a.name AS account_name, a.type AS account_type,
+            a.currency AS account_currency, d.currency,
+            d.start_date::text AS start_date, d.due_date::text AS due_date,
+            d.interest_method, d.annual_rate_pct::text, d.repayment_mode,
+            d.description, d.status, d.current_schedule_version, d.created_at
+       FROM debt_records d
+       JOIN people p ON p.id = d.person_id AND p.user_id = d.user_id
+       LEFT JOIN accounts a ON a.id = d.account_id AND a.user_id = d.user_id
+      WHERE d.user_id = $1
+      ORDER BY d.created_at DESC, d.id DESC
+      LIMIT $2 OFFSET $3;`,
+    [userId, limit, offset]
+  );
+  return result.rows.map(mapLoanListRow);
+}
+
+export async function getLoanById(userId: string, loanId: string): Promise<LoanDetail | null> {
+  // A single statement gives the loan and its current schedule a consistent
+  // snapshot and avoids one query per installment.
+  const result = await pool.query<LoanDetailRow>(
+    `SELECT d.id, d.person_id, p.name AS person_name, p.phone AS person_phone,
+            p.email AS person_email, p.note AS person_note,
+            d.type, d.amount::text, d.account_id, a.name AS account_name,
+            a.type AS account_type, a.currency AS account_currency,
+            a.is_archived AS account_is_archived, d.currency,
+            d.start_date::text AS start_date, d.due_date::text AS due_date,
+            d.interest_method, d.annual_rate_pct::text, d.repayment_mode,
+            d.description, d.status, d.current_schedule_version,
+            s.version_no AS current_schedule_version_row,
+            i.id AS installment_id, i.installment_number,
+            i.due_date::text AS installment_due_date,
+            i.principal_due::text AS principal_due,
+            i.interest_due::text AS interest_due, d.created_at
+       FROM debt_records d
+       JOIN people p ON p.id = d.person_id AND p.user_id = d.user_id
+       LEFT JOIN accounts a ON a.id = d.account_id AND a.user_id = d.user_id
+       LEFT JOIN loan_schedules s
+         ON s.user_id = d.user_id AND s.debt_id = d.id
+        AND s.is_current = TRUE AND s.version_no = d.current_schedule_version
+       LEFT JOIN loan_installments i
+         ON i.user_id = s.user_id AND i.debt_id = s.debt_id AND i.schedule_id = s.id
+      WHERE d.id = $1 AND d.user_id = $2
+      ORDER BY i.due_date, i.installment_number;`,
+    [loanId, userId]
+  );
+
+  const first = result.rows[0];
+  if (!first) return null;
+  if (first.current_schedule_version_row !== first.current_schedule_version) {
+    throw new Error(`Loan ${loanId} does not have its expected current schedule version.`);
+  }
+
+  return {
+    ...mapLoanListRow(first),
+    person: {
+      id: first.person_id,
+      name: first.person_name,
+      phone: first.person_phone,
+      email: first.person_email,
+      note: first.person_note,
+    },
+    account: first.account_id && first.account_name && first.account_type &&
+      first.account_currency && first.account_is_archived !== null
+      ? {
+          id: first.account_id,
+          name: first.account_name,
+          type: first.account_type,
+          currency: first.account_currency,
+          isArchived: first.account_is_archived,
+        }
+      : null,
+    schedule: {
+      version: first.current_schedule_version_row,
+      installments: result.rows.flatMap((row) => row.installment_id ? [{
+        id: row.installment_id,
+        installmentNumber: row.installment_number as number,
+        dueDate: dateOnly(row.installment_due_date as string),
+        principalDue: row.principal_due as string,
+        interestDue: row.interest_due as string,
+      }] : []),
+    },
+  };
 }
 
 function canonicalRequest(input: CreateLoanInput): string {
@@ -300,7 +493,7 @@ export async function createLoan(
          SELECT ROUND($4::numeric * ($5::numeric / 100) * (MAX(due_date) - $3::date) / 365, 2) AS total
            FROM periods
        )
-       SELECT p.installment_number, p.due_date,
+       SELECT p.installment_number, p.due_date::text AS due_date,
               p.principal_due::text AS principal_due,
               CASE
                 WHEN $6::text = 'none' THEN 0::numeric

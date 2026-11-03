@@ -1,4 +1,18 @@
-import type { Account, AccountType, Category, CategoryBudget, Transaction, TransactionCategory, TransactionType } from '../types';
+import type {
+  Account,
+  AccountType,
+  Category,
+  CategoryBudget,
+  CreateLoanInput,
+  CreatePersonInput,
+  CreatedLoan,
+  GetPeopleParams,
+  Person,
+  Transaction,
+  TransactionCategory,
+  TransactionType,
+  UpdatePersonInput,
+} from '../types';
 
 export class ApiError extends Error {
   public status: number;
@@ -231,6 +245,53 @@ export const api = {
    */
   async getMe(signal?: AbortSignal): Promise<User> {
     return request<User>('/auth/me', { signal });
+  },
+
+  /** List the authenticated user's people/loan contacts. */
+  async getPeople(params?: GetPeopleParams, signal?: AbortSignal): Promise<Person[]> {
+    const searchParams = new URLSearchParams();
+    if (params?.search) searchParams.set('search', params.search);
+    if (params?.limit !== undefined) searchParams.set('limit', String(params.limit));
+    if (params?.offset !== undefined) searchParams.set('offset', String(params.offset));
+    const query = searchParams.toString();
+    return request<Person[]>(`/loans/people${query ? `?${query}` : ''}`, { signal });
+  },
+
+  /** Fetch one of the authenticated user's people/loan contacts. */
+  async getPersonById(id: string, signal?: AbortSignal): Promise<Person> {
+    return request<Person>(`/loans/people/${encodeURIComponent(id)}`, { signal });
+  },
+
+  /** Create a person for the authenticated user. */
+  async createPerson(input: CreatePersonInput): Promise<Person> {
+    return request<Person>('/loans/people', {
+      method: 'POST',
+      body: JSON.stringify(input),
+    });
+  },
+
+  /** Update permitted fields on one of the authenticated user's people. */
+  async updatePerson(id: string, input: UpdatePersonInput): Promise<Person> {
+    return request<Person>(`/loans/people/${encodeURIComponent(id)}`, {
+      method: 'PATCH',
+      body: JSON.stringify(input),
+    });
+  },
+
+  /** Delete a person, subject to the backend's loan-history protection. */
+  async deletePerson(id: string): Promise<{ success: boolean; message: string }> {
+    return request<{ success: boolean; message: string }>(`/loans/people/${encodeURIComponent(id)}`, {
+      method: 'DELETE',
+    });
+  },
+
+  /** Create a loan; the backend requires a UUID Idempotency-Key header. */
+  async createLoan(input: CreateLoanInput, idempotencyKey: string): Promise<CreatedLoan> {
+    return request<CreatedLoan>('/loans', {
+      method: 'POST',
+      headers: { 'Idempotency-Key': idempotencyKey },
+      body: JSON.stringify(input),
+    });
   },
 
   /**

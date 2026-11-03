@@ -241,6 +241,7 @@ export function App() {
       categories: 'Categories | FinTrack',
       budgets: 'Budgets | FinTrack',
       analytics: 'Analytics | FinTrack',
+      loans: 'Loans | FinTrack',
       settings: 'Settings | FinTrack',
     };
     document.title = currentUser ? pageTitles[activeNav] || 'FinTrack' : 'Sign in | FinTrack';
@@ -594,6 +595,7 @@ export function App() {
               {activeNav === 'categories' && 'Categories'}
               {activeNav === 'budgets' && 'Budgets'}
               {activeNav === 'analytics' && 'Analytics'}
+              {activeNav === 'loans' && 'Loans'}
               {activeNav === 'settings' && 'Settings'}
             </h1>
             <span className="page-subheading">
@@ -603,6 +605,7 @@ export function App() {
               {activeNav === 'categories' && 'Manage expense and income categories for your transactions and budgets.'}
               {activeNav === 'budgets' && 'Monitor category spend limits and monthly allowances.'}
               {activeNav === 'analytics' && 'Inspect categorized expense patterns and savings velocity.'}
+              {activeNav === 'loans' && 'Manage lending, borrowing, schedules, and repayments.'}
               {activeNav === 'settings' && 'Preferences, storage status, and application info.'}
             </span>
           </div>
@@ -782,6 +785,13 @@ export function App() {
               accountsLoading={accountsLoading}
               accountsError={accountsError}
             />
+          )}
+
+          {activeNav === 'loans' && (
+            <section className="empty-state" aria-label="Loans feature status">
+              <h2>Loan workspace coming soon</h2>
+              <p>Loan management is not available in the app yet.</p>
+            </section>
           )}
 
           {/* Footer */}

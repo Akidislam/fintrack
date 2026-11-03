@@ -5,6 +5,7 @@ export const VALID_NAV_PAGES = [
   'categories',
   'budgets',
   'analytics',
+  'loans',
   'settings',
 ] as const;
 

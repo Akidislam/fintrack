@@ -2,7 +2,9 @@ import { NextFunction, Request, Response } from "express";
 import {
   CreateLoanInput,
   createLoan,
+  getLoanById,
   InterestMethod,
+  listLoans,
   LoanDirection,
   RepaymentMode,
 } from "../services/loanService";
@@ -11,6 +13,9 @@ const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-
 const DATE_REGEX = /^\d{4}-\d{2}-\d{2}$/;
 const AMOUNT_REGEX = /^(?:0|[1-9]\d{0,12})(?:\.\d{1,2})?$/;
 const RATE_REGEX = /^(?:0|[1-9]\d{0,2})(?:\.\d{1,6})?$/;
+const DEFAULT_LIMIT = 50;
+const MAX_LIMIT = 100;
+const MAX_OFFSET = 1_000_000;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -35,6 +40,78 @@ function normalizeDecimal(value: string, scale: number): string {
 
 function invalid(res: Response, message: string): void {
   res.status(400).json({ success: false, message });
+}
+
+function parsePaginationValue(
+  value: unknown,
+  defaultValue: number,
+  maximum: number
+): number | null {
+  if (value === undefined) return defaultValue;
+  if (typeof value !== "string" || !/^\d+$/.test(value)) return null;
+  const parsed = Number(value);
+  if (!Number.isSafeInteger(parsed) || parsed < 0 || parsed > maximum) return null;
+  return parsed;
+}
+
+/** GET /api/loans */
+export async function listLoansController(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    const userId = req.user?.userId;
+    if (!userId) {
+      res.status(401).json({ success: false, message: "Authentication required. Please log in." });
+      return;
+    }
+
+    const limit = parsePaginationValue(req.query.limit, DEFAULT_LIMIT, MAX_LIMIT);
+    if (limit === null || limit === 0) {
+      invalid(res, `limit must be an integer between 1 and ${MAX_LIMIT}.`);
+      return;
+    }
+    const offset = parsePaginationValue(req.query.offset, 0, MAX_OFFSET);
+    if (offset === null) {
+      invalid(res, `offset must be an integer between 0 and ${MAX_OFFSET}.`);
+      return;
+    }
+
+    const loans = await listLoans(userId, limit, offset);
+    res.status(200).json({ success: true, count: loans.length, data: loans });
+  } catch (error) {
+    next(error);
+  }
+}
+
+/** GET /api/loans/:loanId */
+export async function getLoanController(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    const userId = req.user?.userId;
+    if (!userId) {
+      res.status(401).json({ success: false, message: "Authentication required. Please log in." });
+      return;
+    }
+    const loanId = req.params.loanId;
+    if (typeof loanId !== "string" || !UUID_REGEX.test(loanId)) {
+      invalid(res, "loanId must be a valid UUID.");
+      return;
+    }
+
+    const loan = await getLoanById(userId, loanId);
+    if (!loan) {
+      res.status(404).json({ success: false, message: "Loan not found." });
+      return;
+    }
+    res.status(200).json({ success: true, data: loan });
+  } catch (error) {
+    next(error);
+  }
 }
 
 export async function createLoanController(
