@@ -6,7 +6,9 @@ import type {
   CreateLoanInput,
   CreatePersonInput,
   CreatedLoan,
+  GetLoansParams,
   GetPeopleParams,
+  LoanListItem,
   Person,
   Transaction,
   TransactionCategory,
@@ -292,6 +294,15 @@ export const api = {
       headers: { 'Idempotency-Key': idempotencyKey },
       body: JSON.stringify(input),
     });
+  },
+
+  /** Fetch one bounded page from the authenticated user's loan list. */
+  async getLoans(params: GetLoansParams = {}, signal?: AbortSignal): Promise<LoanListItem[]> {
+    const searchParams = new URLSearchParams();
+    if (params.limit !== undefined) searchParams.set('limit', String(params.limit));
+    if (params.offset !== undefined) searchParams.set('offset', String(params.offset));
+    const query = searchParams.toString();
+    return request<LoanListItem[]>(`/loans${query ? `?${query}` : ''}`, { signal });
   },
 
   /**

@@ -173,3 +173,26 @@ export interface CreatedLoan {
   };
   createdAt: string;
 }
+
+export interface LoanListItem {
+  id: string;
+  person: { id: string; name: string };
+  type: LoanDirection;
+  amount: string;
+  account: { id: string; name: string; type: string; currency: string } | null;
+  currency: string;
+  startDate: string;
+  dueDate: string;
+  interestMethod: LoanInterestMethod;
+  annualRatePct: string;
+  repaymentMode: LoanRepaymentMode;
+  description: string | null;
+  status: string;
+  currentScheduleVersion: number;
+  createdAt: string;
+}
+
+export interface GetLoansParams {
+  limit?: number;
+  offset?: number;
+}

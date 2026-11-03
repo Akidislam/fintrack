@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import './App.css';
 import type {
   Transaction,
@@ -8,6 +8,7 @@ import type {
   SupportedCurrency,
   Account,
   Category,
+  LoanListItem,
   User,
 } from './types';
 import { api, ApiError, type CreateCategoryInput } from './services/api';
@@ -21,11 +22,13 @@ import { TransactionsPage } from './components/TransactionsPage';
 import { CategoriesPage } from './components/CategoriesPage';
 import { BudgetsPage } from './components/BudgetsPage';
 import { AnalyticsPage } from './components/AnalyticsPage';
+import { LoansPage } from './components/LoansPage';
 import { SettingsPage } from './components/SettingsPage';
 import { getNavFromLocation, getPathForNav, isValidNavPage, type NavPage } from './utils/navigation';
 import { calculateTotalNetWorth } from './utils/accountUtils';
 
 type Theme = 'light' | 'dark';
+const LOANS_PAGE_SIZE = 20;
 
 function getInitialTheme(): Theme {
   try {
@@ -56,6 +59,11 @@ export function App() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [categoriesLoading, setCategoriesLoading] = useState(false);
   const [categoriesError, setCategoriesError] = useState<string | null>(null);
+  const [loans, setLoans] = useState<LoanListItem[]>([]);
+  const [loansLoading, setLoansLoading] = useState(false);
+  const [loansError, setLoansError] = useState<string | null>(null);
+  const [loansOffset, setLoansOffset] = useState(0);
+  const loansRequestId = useRef(0);
 
   const [currency, setCurrency] = useState<SupportedCurrency>(() => {
     const saved = localStorage.getItem('fintrack_currency');
@@ -165,6 +173,27 @@ export function App() {
     }
   }, []);
 
+  const loadLoans = useCallback(async (offset: number) => {
+    const requestId = ++loansRequestId.current;
+    setLoansLoading(true);
+    setLoansError(null);
+    try {
+      const data = await api.getLoans({ limit: LOANS_PAGE_SIZE, offset });
+      if (requestId === loansRequestId.current) setLoans(data);
+    } catch (err) {
+      if (requestId !== loansRequestId.current) return;
+      setLoans([]);
+      if (err instanceof ApiError && err.status === 401) {
+        setCurrentUser(null);
+        setLoansOffset(0);
+        return;
+      }
+      setLoansError(err instanceof Error ? err.message : 'Failed to load loans from server');
+    } finally {
+      if (requestId === loansRequestId.current) setLoansLoading(false);
+    }
+  }, []);
+
   // Check initial authentication state via /api/auth/me on app mount
   useEffect(() => {
     let isMounted = true;
@@ -183,6 +212,9 @@ export function App() {
           void loadAccounts();
           void loadBudgets();
           void loadCategories();
+          if (getNavFromLocation() === 'loans') {
+            void loadLoans(0);
+          }
         }
       } catch {
         if (isMounted) {
@@ -211,7 +243,7 @@ export function App() {
       isMounted = false;
       controller.abort();
     };
-  }, [loadAccounts, loadCategories, loadTransactions, loadBudgets]);
+  }, [loadAccounts, loadCategories, loadTransactions, loadBudgets, loadLoans]);
 
   // Handle user navigation (updates state, browser history URL, and localStorage)
   const handleNavigate = (nav: string) => {
@@ -221,16 +253,25 @@ export function App() {
     const path = getPathForNav(nav as NavPage);
     window.history.pushState({ nav }, '', path);
     localStorage.setItem('fintrack_nav', nav);
+    if (nav === 'loans') {
+      setLoansOffset(0);
+      void loadLoans(0);
+    }
   };
 
   // Listen to browser Back/Forward navigation
   useEffect(() => {
     const handlePopState = () => {
-      setActiveNav(getNavFromLocation());
+      const nav = getNavFromLocation();
+      setActiveNav(nav);
+      if (nav === 'loans') {
+        setLoansOffset(0);
+        void loadLoans(0);
+      }
     };
     window.addEventListener('popstate', handlePopState);
     return () => window.removeEventListener('popstate', handlePopState);
-  }, []);
+  }, [loadLoans]);
 
   // Sync active page title to browser document
   useEffect(() => {
@@ -515,6 +556,11 @@ export function App() {
     setTransactions([]);
     setBudgets([]);
     setCategories([]);
+    loansRequestId.current += 1;
+    setLoans([]);
+    setLoansLoading(false);
+    setLoansError(null);
+    setLoansOffset(0);
     setActiveNav('dashboard');
   };
 
@@ -542,6 +588,12 @@ export function App() {
           void loadAccounts();
           void loadBudgets();
           void loadCategories();
+          setLoans([]);
+          setLoansError(null);
+          setLoansOffset(0);
+          if (activeNav === 'loans') {
+            void loadLoans(0);
+          }
         }}
       />
     );
@@ -605,7 +657,7 @@ export function App() {
               {activeNav === 'categories' && 'Manage expense and income categories for your transactions and budgets.'}
               {activeNav === 'budgets' && 'Monitor category spend limits and monthly allowances.'}
               {activeNav === 'analytics' && 'Inspect categorized expense patterns and savings velocity.'}
-              {activeNav === 'loans' && 'Manage lending, borrowing, schedules, and repayments.'}
+              {activeNav === 'loans' && 'Review the money you have lent and borrowed.'}
               {activeNav === 'settings' && 'Preferences, storage status, and application info.'}
             </span>
           </div>
@@ -788,10 +840,18 @@ export function App() {
           )}
 
           {activeNav === 'loans' && (
-            <section className="empty-state" aria-label="Loans feature status">
-              <h2>Loan workspace coming soon</h2>
-              <p>Loan management is not available in the app yet.</p>
-            </section>
+            <LoansPage
+              loans={loans}
+              isLoading={loansLoading}
+              error={loansError}
+              offset={loansOffset}
+              pageSize={LOANS_PAGE_SIZE}
+              onRetry={() => void loadLoans(loansOffset)}
+              onPageChange={(nextOffset) => {
+                setLoansOffset(nextOffset);
+                void loadLoans(nextOffset);
+              }}
+            />
           )}
 
           {/* Footer */}
