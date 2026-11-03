@@ -3,8 +3,10 @@ import dotenv from "dotenv";
 import { Pool } from "pg";
 
 // Ensure server/.env is loaded reliably whether started from project root or server/
-dotenv.config({ path: path.resolve(__dirname, "../.env") });
-dotenv.config();
+dotenv.config({
+  path: path.resolve(__dirname, "../.env"),
+  override: false,
+});
 
 if (!process.env.DATABASE_URL) {
   throw new Error("DATABASE_URL is not set in the server environment");
