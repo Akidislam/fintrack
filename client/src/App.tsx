@@ -8,7 +8,10 @@ import type {
   SupportedCurrency,
   Account,
   Category,
+  CreatePersonInput,
   LoanListItem,
+  Person,
+  UpdatePersonInput,
   User,
 } from './types';
 import { api, ApiError, type CreateCategoryInput } from './services/api';
@@ -23,12 +26,14 @@ import { CategoriesPage } from './components/CategoriesPage';
 import { BudgetsPage } from './components/BudgetsPage';
 import { AnalyticsPage } from './components/AnalyticsPage';
 import { LoansPage } from './components/LoansPage';
+import { PeoplePage } from './components/PeoplePage';
 import { SettingsPage } from './components/SettingsPage';
 import { getNavFromLocation, getPathForNav, isValidNavPage, type NavPage } from './utils/navigation';
 import { calculateTotalNetWorth } from './utils/accountUtils';
 
 type Theme = 'light' | 'dark';
 const LOANS_PAGE_SIZE = 20;
+const PEOPLE_PAGE_SIZE = 20;
 
 function getInitialTheme(): Theme {
   try {
@@ -64,6 +69,12 @@ export function App() {
   const [loansError, setLoansError] = useState<string | null>(null);
   const [loansOffset, setLoansOffset] = useState(0);
   const loansRequestId = useRef(0);
+  const [people, setPeople] = useState<Person[]>([]);
+  const [peopleLoading, setPeopleLoading] = useState(false);
+  const [peopleError, setPeopleError] = useState<string | null>(null);
+  const [peopleSearch, setPeopleSearch] = useState('');
+  const [peopleOffset, setPeopleOffset] = useState(0);
+  const peopleRequestId = useRef(0);
 
   const [currency, setCurrency] = useState<SupportedCurrency>(() => {
     const saved = localStorage.getItem('fintrack_currency');
@@ -194,6 +205,27 @@ export function App() {
     }
   }, []);
 
+  const loadPeople = useCallback(async (search: string, offset: number) => {
+    const requestId = ++peopleRequestId.current;
+    setPeopleLoading(true);
+    setPeopleError(null);
+    try {
+      const data = await api.getPeople({ search: search || undefined, limit: PEOPLE_PAGE_SIZE, offset });
+      if (requestId === peopleRequestId.current) setPeople(data);
+    } catch (err) {
+      if (requestId !== peopleRequestId.current) return;
+      setPeople([]);
+      if (err instanceof ApiError && err.status === 401) {
+        setCurrentUser(null);
+        setPeopleOffset(0);
+        return;
+      }
+      setPeopleError(err instanceof Error ? err.message : 'Failed to load people from server');
+    } finally {
+      if (requestId === peopleRequestId.current) setPeopleLoading(false);
+    }
+  }, []);
+
   // Check initial authentication state via /api/auth/me on app mount
   useEffect(() => {
     let isMounted = true;
@@ -214,6 +246,9 @@ export function App() {
           void loadCategories();
           if (getNavFromLocation() === 'loans') {
             void loadLoans(0);
+          }
+          if (getNavFromLocation() === 'people') {
+            void loadPeople('', 0);
           }
         }
       } catch {
@@ -243,7 +278,7 @@ export function App() {
       isMounted = false;
       controller.abort();
     };
-  }, [loadAccounts, loadCategories, loadTransactions, loadBudgets, loadLoans]);
+  }, [loadAccounts, loadCategories, loadTransactions, loadBudgets, loadLoans, loadPeople]);
 
   // Handle user navigation (updates state, browser history URL, and localStorage)
   const handleNavigate = (nav: string) => {
@@ -257,6 +292,11 @@ export function App() {
       setLoansOffset(0);
       void loadLoans(0);
     }
+    if (nav === 'people') {
+      setPeopleSearch('');
+      setPeopleOffset(0);
+      void loadPeople('', 0);
+    }
   };
 
   // Listen to browser Back/Forward navigation
@@ -268,10 +308,15 @@ export function App() {
         setLoansOffset(0);
         void loadLoans(0);
       }
+      if (nav === 'people') {
+        setPeopleSearch('');
+        setPeopleOffset(0);
+        void loadPeople('', 0);
+      }
     };
     window.addEventListener('popstate', handlePopState);
     return () => window.removeEventListener('popstate', handlePopState);
-  }, [loadLoans]);
+  }, [loadLoans, loadPeople]);
 
   // Sync active page title to browser document
   useEffect(() => {
@@ -283,6 +328,7 @@ export function App() {
       budgets: 'Budgets | FinTrack',
       analytics: 'Analytics | FinTrack',
       loans: 'Loans | FinTrack',
+      people: 'People | FinTrack',
       settings: 'Settings | FinTrack',
     };
     document.title = currentUser ? pageTitles[activeNav] || 'FinTrack' : 'Sign in | FinTrack';
@@ -561,6 +607,12 @@ export function App() {
     setLoansLoading(false);
     setLoansError(null);
     setLoansOffset(0);
+    peopleRequestId.current += 1;
+    setPeople([]);
+    setPeopleLoading(false);
+    setPeopleError(null);
+    setPeopleSearch('');
+    setPeopleOffset(0);
     setActiveNav('dashboard');
   };
 
@@ -593,6 +645,13 @@ export function App() {
           setLoansOffset(0);
           if (activeNav === 'loans') {
             void loadLoans(0);
+          }
+          setPeople([]);
+          setPeopleError(null);
+          setPeopleSearch('');
+          setPeopleOffset(0);
+          if (activeNav === 'people') {
+            void loadPeople('', 0);
           }
         }}
       />
@@ -648,6 +707,7 @@ export function App() {
               {activeNav === 'budgets' && 'Budgets'}
               {activeNav === 'analytics' && 'Analytics'}
               {activeNav === 'loans' && 'Loans'}
+              {activeNav === 'people' && 'People'}
               {activeNav === 'settings' && 'Settings'}
             </h1>
             <span className="page-subheading">
@@ -658,6 +718,7 @@ export function App() {
               {activeNav === 'budgets' && 'Monitor category spend limits and monthly allowances.'}
               {activeNav === 'analytics' && 'Inspect categorized expense patterns and savings velocity.'}
               {activeNav === 'loans' && 'Review the money you have lent and borrowed.'}
+              {activeNav === 'people' && 'Manage people connected to your loans.'}
               {activeNav === 'settings' && 'Preferences, storage status, and application info.'}
             </span>
           </div>
@@ -850,6 +911,47 @@ export function App() {
               onPageChange={(nextOffset) => {
                 setLoansOffset(nextOffset);
                 void loadLoans(nextOffset);
+              }}
+            />
+          )}
+
+          {activeNav === 'people' && (
+            <PeoplePage
+              people={people}
+              isLoading={peopleLoading}
+              error={peopleError}
+              search={peopleSearch}
+              offset={peopleOffset}
+              pageSize={PEOPLE_PAGE_SIZE}
+              onSearch={(search) => {
+                setPeopleSearch(search);
+                setPeopleOffset(0);
+                void loadPeople(search, 0);
+              }}
+              onRetry={() => void loadPeople(peopleSearch, peopleOffset)}
+              onPageChange={(nextOffset) => {
+                setPeopleOffset(nextOffset);
+                void loadPeople(peopleSearch, nextOffset);
+              }}
+              onSave={async (data, personId) => {
+                if (personId) {
+                  await api.updatePerson(personId, data as UpdatePersonInput);
+                } else {
+                  await api.createPerson(data as CreatePersonInput);
+                  setPeopleSearch('');
+                  setPeopleOffset(0);
+                  await loadPeople('', 0);
+                  return;
+                }
+                await loadPeople(peopleSearch, peopleOffset);
+              }}
+              onDelete={async (person) => {
+                await api.deletePerson(person.id);
+                const nextOffset = people.length === 1 && peopleOffset > 0
+                  ? Math.max(0, peopleOffset - PEOPLE_PAGE_SIZE)
+                  : peopleOffset;
+                if (nextOffset !== peopleOffset) setPeopleOffset(nextOffset);
+                await loadPeople(peopleSearch, nextOffset);
               }}
             />
           )}
